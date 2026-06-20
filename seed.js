@@ -33,7 +33,8 @@ function seed() {
     { name: 'X0001', scenario: 'The Way of Winter' },
     { name: 'PVE-01-0001', scenario: 'Manibus' },
     { name: 'PVP-01-0001', scenario: 'Prismverse\'s Clash' },
-    { name: 'PVE-01-0002', scenario: 'Evolution\'s Call' }
+    { name: 'PVE-01-0002', scenario: 'Evolution\'s Call' },
+    { name: 'Solo Tracking', scenario: 'Solo' }
   ];
 
   const insertServer = db.prepare(`

@@ -505,6 +505,62 @@ app.delete('/api/characters/:id', authenticate, (req, res) => {
   }
 });
 
+// Get character specializations
+app.get('/api/characters/:id/specializations', authenticate, (req, res) => {
+  const characterId = req.params.id;
+  try {
+    const specs = db.prepare('SELECT specialization_name FROM character_specializations WHERE character_id = ?').all(characterId);
+    res.json(specs.map(s => s.specialization_name));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save/update character specializations
+app.post('/api/characters/:id/specializations', authenticate, (req, res) => {
+  const characterId = req.params.id;
+  const { specializations } = req.body;
+
+  if (!Array.isArray(specializations)) {
+    return res.status(400).json({ error: 'specializations must be an array of strings' });
+  }
+
+  try {
+    // Verify ownership
+    const char = db.prepare('SELECT 1 FROM characters WHERE id = ? AND user_id = ?').get(characterId, req.user.id);
+    if (!char) {
+      return res.status(403).json({ error: 'Access denied to character' });
+    }
+
+    db.prepare('DELETE FROM character_specializations WHERE character_id = ?').run(characterId);
+
+    const insertSpec = db.prepare('INSERT INTO character_specializations (character_id, specialization_name) VALUES (?, ?)');
+    for (const specName of specializations) {
+      insertSpec.run(characterId, specName);
+    }
+
+    res.json({ message: 'Specializations updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get guild specializations
+app.get('/api/guilds/:id/specializations', authenticate, (req, res) => {
+  const guildId = req.params.id;
+  try {
+    const guildSpecs = db.prepare(`
+      SELECT cs.specialization_name, c.id as character_id, c.name as character_name
+      FROM character_specializations cs
+      JOIN characters c ON cs.character_id = c.id
+      WHERE c.guild_id = ?
+    `).all(guildId);
+    res.json(guildSpecs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 /* ================= RECIPE STATE ROUTES ================= */
 
@@ -696,37 +752,88 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
   try {
     // Regexes to extract standard Once Human server strings
     const patterns = [
-      /(?:PVE|PVP)-\d{2}-\d{3,5}/gi,
-      /(?:PVE|PVP)-[A-Z]{2,3}-\d{2}-\d{3,5}/gi,
-      /X\d{4}/gi
+      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,5}/gi,
+      /(?:[A-Z0-9_]+-)?X\d{4,5}/gi,
+      /(?:[A-Z0-9_]+_)?S-\d{4,5}/gi
     ];
 
     const foundServers = new Set();
     for (const pattern of patterns) {
       let match;
+      pattern.lastIndex = 0; // Reset regex state
       while ((match = pattern.exec(text)) !== null) {
         foundServers.add(match[0].toUpperCase());
       }
     }
 
+    // 1. In-memory deduplication (longest names first, discard shorthands that are suffixes of longer names)
+    const dedupedList = [];
+    const sortedFound = Array.from(foundServers).sort((a, b) => b.length - a.length);
+    for (const name of sortedFound) {
+      const isSuffix = dedupedList.some(longerName => 
+        longerName.endsWith('-' + name) || longerName.endsWith('_' + name)
+      );
+      if (!isSuffix) {
+        dedupedList.push(name);
+      }
+    }
+
+    // 2. Database level checks/updates
     const newServers = [];
+    const existingServers = db.prepare(`
+      SELECT id, name FROM servers WHERE scenario_name = ?
+    `).all(scenario_name);
+
     const insertServer = db.prepare(`
-      INSERT OR IGNORE INTO servers (name, scenario_name) VALUES (?, ?)
+      INSERT INTO servers (name, scenario_name) VALUES (?, ?)
     `);
 
-    for (const serverName of foundServers) {
-      const exists = db.prepare(`
-        SELECT 1 FROM servers WHERE name = ? AND scenario_name = ?
-      `).get(serverName, scenario_name);
+    const updateServerName = db.prepare(`
+      UPDATE servers SET name = ? WHERE id = ?
+    `);
 
-      if (!exists) {
+    for (const serverName of dedupedList) {
+      let isDuplicate = false;
+      let matchedServerId = null;
+      let shouldUpdateName = false;
+
+      for (const existing of existingServers) {
+        if (existing.name === serverName) {
+          isDuplicate = true;
+          break;
+        }
+
+        // Scenario A: DB has shorthand (e.g. "X0183"), incoming is full (e.g. "MANIBUS-X0183")
+        // Update database record to full name so we preserve character associations but upgrade name
+        if (serverName.endsWith('-' + existing.name) || serverName.endsWith('_' + existing.name)) {
+          matchedServerId = existing.id;
+          shouldUpdateName = true;
+          break;
+        }
+
+        // Scenario B: DB has full (e.g. "MANIBUS-X0183"), incoming is shorthand (e.g. "X0183")
+        // Keep the database's full name, skip registering shorthand
+        if (existing.name.endsWith('-' + serverName) || existing.name.endsWith('_' + serverName)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      if (shouldUpdateName && matchedServerId !== null) {
+        updateServerName.run(serverName, matchedServerId);
+        newServers.push(`${serverName} (Updated from shorthand)`);
+        // Update cache so subsequent items in this loop don't match old name
+        const ext = existingServers.find(e => e.id === matchedServerId);
+        if (ext) ext.name = serverName;
+      } else if (!isDuplicate) {
         insertServer.run(serverName, scenario_name);
         newServers.push(serverName);
+        existingServers.push({ name: serverName });
       }
     }
 
     res.json({
-      message: `Scanned text. Found ${foundServers.size} codes. Registered ${newServers.length} new servers under '${scenario_name}'.`,
+      message: `Scanned text. Found ${foundServers.size} raw codes. Registered/updated ${newServers.length} servers under '${scenario_name}'.`,
       newServers
     });
   } catch (err) {

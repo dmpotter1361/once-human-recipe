@@ -104,41 +104,88 @@
             </div>
           </div>
 
-          <!-- Quick Filters -->
-          <div class="matrix-filters glass-panel">
-            <div class="search-box">
-              <i data-lucide="search"></i>
-              <input type="text" id="matrix-search" placeholder="Search recipe or item name...">
+          <!-- Guild MVP Spotlights and Gap Alerts -->
+          <div class="matrix-spotlights hidden" id="matrix-spotlights-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <!-- Injected by JS: Solo Crafters and Gap Alerts -->
+          </div>
+
+          <!-- Coordinator View Toggle -->
+          <div class="matrix-view-toggle glass-panel" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+            <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="orbit" style="color: var(--status-learned-glow); width: 18px; height: 18px;"></i>
+              <span>Guild Coordinator Mode</span>
             </div>
-            <div class="category-buttons" id="matrix-category-filters">
-              <button class="cat-btn active" data-category="all">All</button>
-              <button class="cat-btn" data-category="Survival">Survival</button>
-              <button class="cat-btn" data-category="Combat">Combat</button>
-              <button class="cat-btn" data-category="Production">Production</button>
-              <button class="cat-btn" data-category="Exclusive">Exclusive</button>
-              <button class="cat-btn" data-category="Build">Build</button>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-sm primary-btn active" id="show-recipe-matrix-btn">Recipe Matrix</button>
+              <button class="btn btn-sm secondary-btn" id="show-spec-matrix-btn">Memetic Specializations</button>
             </div>
           </div>
 
-          <!-- Crafting Matrix Table Container (PC/Desktop) -->
-          <div class="table-container glass-panel" id="desktop-matrix-view">
-            <table class="matrix-table" id="matrix-table-el">
-              <thead>
-                <!-- Will be injected by JS -->
-              </thead>
-              <tbody>
-                <!-- Will be injected by JS -->
-              </tbody>
-            </table>
-            <div class="empty-state hidden" id="matrix-empty">
-              <i data-lucide="info"></i>
-              <p>No characters or recipes found matching the current filters. Set up a character and join this server/scenario!</p>
+          <!-- 1. RECIPE MATRIX VIEW BLOCK -->
+          <div id="recipe-matrix-view-block">
+            <!-- Quick Filters -->
+            <div class="matrix-filters glass-panel">
+              <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="matrix-search" placeholder="Search recipe or item name...">
+              </div>
+              <div class="category-buttons" id="matrix-category-filters">
+                <button class="cat-btn active" data-category="all">All</button>
+                <button class="cat-btn" data-category="Survival">Survival</button>
+                <button class="cat-btn" data-category="Combat">Combat</button>
+                <button class="cat-btn" data-category="Production">Production</button>
+                <button class="cat-btn" data-category="Exclusive">Exclusive</button>
+                <button class="cat-btn" data-category="Build">Build</button>
+              </div>
+            </div>
+
+            <!-- Crafting Matrix Table Container (PC/Desktop) -->
+            <div class="table-container glass-panel" id="desktop-matrix-view">
+              <table class="matrix-table" id="matrix-table-el">
+                <thead>
+                  <!-- Will be injected by JS -->
+                </thead>
+                <tbody>
+                  <!-- Will be injected by JS -->
+                </tbody>
+              </table>
+              <div class="empty-state hidden" id="matrix-empty">
+                <i data-lucide="info"></i>
+                <p>No characters or recipes found matching the current filters. Set up a character and join this server/scenario!</p>
+              </div>
+            </div>
+
+            <!-- Mobile Cards Layout (Context-Aware) -->
+            <div class="mobile-container hidden" id="mobile-matrix-view">
+              <!-- Will be injected by JS -->
             </div>
           </div>
 
-          <!-- Mobile Cards Layout (Context-Aware) -->
-          <div class="mobile-container hidden" id="mobile-matrix-view">
-            <!-- Will be injected by JS -->
+          <!-- 2. SPECIALIZATION MATRIX VIEW BLOCK -->
+          <div id="spec-matrix-view-block" class="hidden">
+            <!-- Gap Alerts Banner -->
+            <div class="glass-panel" id="spec-gap-alerts" style="padding: 15px; margin-bottom: 20px; border-left: 4px solid var(--status-learning-glow); display: none;">
+              <!-- Injected by JS -->
+            </div>
+
+            <div class="table-container glass-panel" id="desktop-spec-view">
+              <table class="matrix-table" id="spec-table-el">
+                <thead>
+                  <!-- Will be injected by JS -->
+                </thead>
+                <tbody>
+                  <!-- Will be injected by JS -->
+                </tbody>
+              </table>
+              <div class="empty-state hidden" id="spec-empty">
+                <i data-lucide="info"></i>
+                <p>No specialization records found in this guild. Have members add specializations in their Character profiles!</p>
+              </div>
+            </div>
+
+            <div class="mobile-container hidden" id="mobile-spec-view">
+              <!-- Will be injected by JS -->
+            </div>
           </div>
         </section>
 
@@ -200,6 +247,19 @@
                 <!-- Will show current guild or options to join/create -->
               </div>
 
+              <!-- Character Specializations Checklist -->
+              <div id="char-spec-checklist-container" class="hidden glass-panel" style="padding: 15px; margin-bottom: 20px; border-color: rgba(255,255,255,0.05);">
+                <div class="checklist-header" style="margin-bottom: 10px;">
+                  <h4 style="font-size: 1rem;"><i data-lucide="sliders" style="vertical-align: middle; width: 18px; height: 18px; margin-right: 5px; color: var(--status-learning-glow);"></i> Memetic Specializations</h4>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">Select which key specializations this character has unlocked to share with your guild.</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 150px; overflow-y: auto; padding-right: 5px;" id="char-spec-checkboxes">
+                  <!-- Injected by JS -->
+                </div>
+                <button class="btn btn-sm primary-btn" id="save-char-specs-btn" style="margin-top: 12px; width: 100%;">Save Specializations</button>
+              </div>
+
               <div id="char-recipe-checklist-container" class="hidden">
                 <div class="checklist-header">
                   <h4>Recipe Checklist</h4>
@@ -227,41 +287,49 @@
                   <label for="char-new-name">Character Name</label>
                   <input type="text" id="char-new-name" required placeholder="Exact in-game character name...">
                 </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="char-new-scenario">Scenario Name</label>
-                    <select id="char-new-scenario" class="glass-select" required>
-                      <option value="">Select Scenario...</option>
-                      <option value="The Way of Winter">The Way of Winter</option>
-                      <option value="Manibus">Manibus</option>
-                      <option value="Prismverse's Clash">Prismverse's Clash</option>
-                      <option value="Evolution's Call">Evolution's Call</option>
-                      <option value="custom">Register Custom Scenario...</option>
-                    </select>
-                  </div>
-                  <div class="form-group hidden" id="custom-scenario-group">
-                    <label for="char-custom-scenario">Custom Scenario Name</label>
-                    <input type="text" id="char-custom-scenario" placeholder="e.g. The Way of Winter II">
-                  </div>
+                
+                <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                  <input type="checkbox" id="char-solo-check">
+                  <label for="char-solo-check">Solo / Self-Tracking Mode (No server or guild setup)</label>
                 </div>
-                <div class="form-group">
-                  <label for="char-new-server">Server Code / Number</label>
-                  <input type="text" id="char-new-server" required placeholder="e.g. X0001, PVE-01-0023">
-                </div>
-                <div class="form-group checkbox-group">
-                  <input type="checkbox" id="char-join-guild-check">
-                  <label for="char-join-guild-check">Join an Existing Guild immediately</label>
-                </div>
-                <div class="hidden" id="modal-guild-join-fields">
-                  <div class="form-group">
-                    <label for="char-join-guild-select">Select Guild</label>
-                    <select id="char-join-guild-select" class="glass-select">
-                      <!-- Injected by JS -->
-                    </select>
+                
+                <div id="char-online-fields">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="char-new-scenario">Scenario Name</label>
+                      <select id="char-new-scenario" class="glass-select" required>
+                        <option value="">Select Scenario...</option>
+                        <option value="The Way of Winter">The Way of Winter</option>
+                        <option value="Manibus">Manibus</option>
+                        <option value="Prismverse's Clash">Prismverse's Clash</option>
+                        <option value="Evolution's Call">Evolution's Call</option>
+                        <option value="custom">Register Custom Scenario...</option>
+                      </select>
+                    </div>
+                    <div class="form-group hidden" id="custom-scenario-group">
+                      <label for="char-custom-scenario">Custom Scenario Name</label>
+                      <input type="text" id="char-custom-scenario" placeholder="e.g. The Way of Winter II">
+                    </div>
                   </div>
                   <div class="form-group">
-                    <label for="char-join-guild-passcode">Guild Join Passcode</label>
-                    <input type="password" id="char-join-guild-passcode" placeholder="Enter guild passcode...">
+                    <label for="char-new-server">Server Code / Number</label>
+                    <input type="text" id="char-new-server" required placeholder="e.g. X0001, PVE-01-0023">
+                  </div>
+                  <div class="form-group checkbox-group">
+                    <input type="checkbox" id="char-join-guild-check">
+                    <label for="char-join-guild-check">Join an Existing Guild immediately</label>
+                  </div>
+                  <div class="hidden" id="modal-guild-join-fields">
+                    <div class="form-group">
+                      <label for="char-join-guild-select">Select Guild</label>
+                      <select id="char-join-guild-select" class="glass-select">
+                        <!-- Injected by JS -->
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="char-join-guild-passcode">Guild Join Passcode</label>
+                      <input type="password" id="char-join-guild-passcode" placeholder="Enter guild passcode...">
+                    </div>
                   </div>
                 </div>
                 <button type="submit" class="btn primary-btn btn-glow">Create Character</button>
@@ -378,9 +446,14 @@
               <h2>Recipe Catalog & Search</h2>
               <p>Browse the global crafting index and lookup formulas.</p>
             </div>
-            <button class="btn secondary-btn" id="open-submit-recipe-btn">
-              <i data-lucide="plus"></i> Submit Custom Recipe
-            </button>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn secondary-btn" id="open-calculator-btn">
+                <i data-lucide="calculator"></i> Crafting Calculator
+              </button>
+              <button class="btn secondary-btn" id="open-submit-recipe-btn">
+                <i data-lucide="plus"></i> Submit Custom Recipe
+              </button>
+            </div>
           </div>
 
           <div class="glass-panel pane-section full-width-pane">
@@ -458,6 +531,38 @@
                 </div>
                 <button type="submit" class="btn primary-btn btn-glow" style="width: 100%;">Submit Recipe</button>
               </form>
+            </div>
+          </div>
+
+          <!-- Crafting Calculator Modal -->
+          <div class="modal hidden" id="calculator-modal">
+            <div class="modal-content glass-panel" style="max-width: 800px;">
+              <div class="modal-header">
+                <h3><i data-lucide="calculator" style="color: var(--status-learning-glow); vertical-align: middle; margin-right: 5px; width: 20px; height: 20px;"></i> Stardust Crafting Calculator</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              <p class="modal-desc" style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.85rem;">
+                Add recipes to your queue to recursively calculate raw material lists and locate guild members who can craft them.
+              </p>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px;">
+                <!-- Queue Panel -->
+                <div class="glass-panel" style="padding: 15px; border-color: rgba(255,255,255,0.03);">
+                  <h4 style="font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 5px; margin-bottom: 10px; color: var(--text-main);">Crafting Queue</h4>
+                  <div id="calc-queue-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+                    <!-- Injected by JS: items in queue with quantity controls -->
+                    <p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">Queue is empty. Add items from the catalog list below!</p>
+                  </div>
+                </div>
+                
+                <!-- Results Panel -->
+                <div class="glass-panel" style="padding: 15px; border-color: rgba(255,255,255,0.03); display: flex; flex-direction: column;">
+                  <h4 style="font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 5px; margin-bottom: 10px; color: var(--text-main);">Required Raw Materials</h4>
+                  <div id="calc-shopping-list" style="flex-grow: 1; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+                    <p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">No raw materials calculated.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

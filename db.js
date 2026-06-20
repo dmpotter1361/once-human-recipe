@@ -81,6 +81,13 @@ function initSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS character_specializations (
+      character_id INTEGER NOT NULL,
+      specialization_name TEXT NOT NULL,
+      PRIMARY KEY (character_id, specialization_name),
+      FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+    );
   `);
 
   // Run migration for existing databases

@@ -1,5 +1,25 @@
 // ================= STATE & CONFIGURATION ================= //
 const API_BASE = '/api';
+const SPECIALIZATIONS_LIST = [
+  "Sulfur Chemist (Acid production)",
+  "Gold/Silver Smelting (Smelt Ore to Ingots)",
+  "Portable Fridge (Increases food preservation)",
+  "Super Refinery (Refines acid/fuel faster)",
+  "Biomass Generator: Yield (Higher power output)",
+  "Solar Generator: Boost (Higher power output)",
+  "Copper Ammo: High Yield (+copper ammo count)",
+  "Steel Ammo: High Yield (+steel ammo count)",
+  "Electronic Parts Recycling (Higher yield)",
+  "Kitchen Master (+food buff durations)",
+  "Medication Synthesis: High Yield",
+  "Stardust Water Pump (Automatic stardust water extraction)",
+  "High-Efficiency Smelter (-smelting time/costs)",
+  "Mining Platform: Extra Drills (+drill yield)",
+  "Chips/Keycards Crafting (Sells for energy links)",
+  "Specialized Armor Plating (+armor durability)",
+  "Specialized Weapon Tuning (+weapon damage/durability)"
+];
+
 const state = {
   token: localStorage.getItem('stardust_token') || null,
   user: JSON.parse(localStorage.getItem('stardust_user')) || null,
@@ -19,7 +39,9 @@ const state = {
   // Matrix specific
   matrixCharacters: [],
   matrixRecipes: [],
-  matrixState: {}
+  matrixState: {},
+  activeCoordinatorView: 'recipe', // 'recipe' or 'spec'
+  calcQueue: [] // [{ recipeId, qty }]
 };
 
 // ================= INITIALIZATION ================= //
@@ -67,6 +89,15 @@ function initDOM() {
     desktopMatrixView: document.getElementById('desktop-matrix-view'),
     mobileMatrixView: document.getElementById('mobile-matrix-view'),
     matrixCategoryFilters: document.getElementById('matrix-category-filters'),
+    matrixSpotlightsContainer: document.getElementById('matrix-spotlights-container'),
+    showRecipeMatrixBtn: document.getElementById('show-recipe-matrix-btn'),
+    showSpecMatrixBtn: document.getElementById('show-spec-matrix-btn'),
+    recipeMatrixViewBlock: document.getElementById('recipe-matrix-view-block'),
+    specMatrixViewBlock: document.getElementById('spec-matrix-view-block'),
+    specGapAlerts: document.getElementById('spec-gap-alerts'),
+    specTableEl: document.getElementById('spec-table-el'),
+    specEmpty: document.getElementById('spec-empty'),
+    mobileSpecView: document.getElementById('mobile-spec-view'),
     
     // Wishlist Tab
     wishlistServerSelect: document.getElementById('wishlist-server-select'),
@@ -78,6 +109,8 @@ function initDOM() {
     createCharModal: document.getElementById('create-char-modal'),
     createCharForm: document.getElementById('create-char-form'),
     charNewName: document.getElementById('char-new-name'),
+    charSoloCheck: document.getElementById('char-solo-check'),
+    charOnlineFields: document.getElementById('char-online-fields'),
     charNewScenario: document.getElementById('char-new-scenario'),
     customScenarioGroup: document.getElementById('custom-scenario-group'),
     charCustomScenario: document.getElementById('char-custom-scenario'),
@@ -94,6 +127,9 @@ function initDOM() {
     deleteCharBtn: document.getElementById('delete-char-btn'),
     migrateCharBtnTrigger: document.getElementById('migrate-char-btn-trigger'),
     charGuildBox: document.getElementById('char-guild-box'),
+    charSpecChecklistContainer: document.getElementById('char-spec-checklist-container'),
+    charSpecCheckboxes: document.getElementById('char-spec-checkboxes'),
+    saveCharSpecsBtn: document.getElementById('save-char-specs-btn'),
     charRecipeChecklistContainer: document.getElementById('char-recipe-checklist-container'),
     recipeChecklistEl: document.getElementById('recipe-checklist-el'),
     checklistSearchInput: document.getElementById('checklist-search-input'),
@@ -120,6 +156,10 @@ function initDOM() {
     submitRecipeError: document.getElementById('submit-recipe-error'),
     openSubmitRecipeBtn: document.getElementById('open-submit-recipe-btn'),
     submitRecipeModal: document.getElementById('submit-recipe-modal'),
+    openCalculatorBtn: document.getElementById('open-calculator-btn'),
+    calculatorModal: document.getElementById('calculator-modal'),
+    calcQueueList: document.getElementById('calc-queue-list'),
+    calcShoppingList: document.getElementById('calc-shopping-list'),
     
     // Guild Modals & Managers
     joinGuildModal: document.getElementById('join-guild-modal'),
@@ -436,6 +476,7 @@ async function loadMatrix() {
     state.matrixState = data.stateMap;
 
     renderMatrix();
+    renderGuildMVPSpotlights();
   } catch (err) {
     console.error("Failed to load matrix data", err);
   }
@@ -548,10 +589,225 @@ function filterMatrixUI() {
         </div>
       </div>
     `;
-  }
   DOM.mobileMatrixView.innerHTML = mobileHtml;
   
   lucide.createIcons();
+}
+
+function renderGuildMVPSpotlights() {
+  const spotlights = [];
+  
+  // Find solo crafters
+  state.matrixRecipes.forEach(r => {
+    // state.matrixState structure: { charId: { recipeId: status } }
+    const learnedBy = [];
+    state.matrixCharacters.forEach(c => {
+      const status = (state.matrixState[c.id] && state.matrixState[c.id][r.id]) || null;
+      if (status === 'learned') {
+        learnedBy.push(c.name);
+      }
+    });
+
+    if (learnedBy.length === 1) {
+      spotlights.push({
+        recipeName: r.item_name,
+        crafterName: learnedBy[0],
+        category: r.category
+      });
+    }
+  });
+
+  if (spotlights.length > 0) {
+    DOM.matrixSpotlightsContainer.classList.remove('hidden');
+    let html = `
+      <div class="glass-panel" style="padding: 15px; border-color: rgba(0, 242, 254, 0.1); border-radius: 8px;">
+        <h4 style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;">
+          <i data-lucide="crown" style="color: var(--status-learned-glow); width: 18px; height: 18px;"></i>
+          <span>Solo Crafter Spotlights</span>
+        </h4>
+        <div style="max-height: 100px; overflow-y: auto; font-size: 0.8rem; display: flex; flex-direction: column; gap: 5px; padding-right: 5px;">
+    `;
+    spotlights.slice(0, 5).forEach(s => {
+      html += `
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 3px;">
+          <span style="font-weight: 600;">${s.recipeName}</span>
+          <span style="color: var(--status-learned-glow); font-family: monospace;">Only ${s.crafterName}</span>
+        </div>
+      `;
+    });
+    if (spotlights.length > 5) {
+      html += `<div style="text-align: right; color: var(--text-muted); font-size: 0.75rem;">+${spotlights.length - 5} more solo formulas</div>`;
+    }
+    html += `
+        </div>
+      </div>
+      
+      <div class="glass-panel" style="padding: 15px; border-color: rgba(246, 211, 101, 0.1); border-radius: 8px;">
+        <h4 style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;">
+          <i data-lucide="award" style="color: var(--status-learning-glow); width: 18px; height: 18px;"></i>
+          <span>Guild Formula Coverage</span>
+        </h4>
+        <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Total Recipes Tracked:</span>
+            <strong style="font-family: monospace; font-size: 0.9rem;">${state.matrixRecipes.length}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Unique Known Recipes:</span>
+            <strong style="font-family: monospace; font-size: 0.9rem; color: var(--status-learned-glow);">
+              ${state.matrixRecipes.filter(r => {
+                return state.matrixCharacters.some(c => {
+                  const status = (state.matrixState[c.id] && state.matrixState[c.id][r.id]) || null;
+                  return status === 'learned';
+                });
+              }).length}
+            </strong>
+          </div>
+        </div>
+      </div>
+    `;
+    DOM.matrixSpotlightsContainer.innerHTML = html;
+  } else {
+    DOM.matrixSpotlightsContainer.classList.add('hidden');
+  }
+
+  lucide.createIcons();
+}
+
+async function loadSpecializationMatrix() {
+  let guildId = state.activeGuildId;
+  if (!guildId) {
+    const charWithGuild = state.myCharacters.find(c => c.guild_id !== null);
+    if (charWithGuild) {
+      guildId = charWithGuild.guild_id;
+      state.activeGuildId = guildId;
+    }
+  }
+
+  if (!guildId) {
+    DOM.specEmpty.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const data = await apiCall(`/guilds/${guildId}/specializations`);
+    renderSpecializationMatrixUI(data);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderSpecializationMatrixUI(guildSpecs) {
+  if (state.matrixCharacters.length === 0) {
+    DOM.specEmpty.classList.remove('hidden');
+    return;
+  }
+
+  DOM.specEmpty.classList.add('hidden');
+
+  // Build table headers
+  let headHtml = '<tr><th>Memetic Specialization</th>';
+  state.matrixCharacters.forEach(c => {
+    headHtml += `<th>${c.name}</th>`;
+  });
+  headHtml += '</tr>';
+  DOM.specTableEl.querySelector('thead').innerHTML = headHtml;
+
+  // Build lookup map of { characterId_specName: true }
+  const specLookup = {};
+  const specCounts = {};
+  SPECIALIZATIONS_LIST.forEach(s => specCounts[s] = 0);
+
+  guildSpecs.forEach(item => {
+    specLookup[`${item.character_id}_${item.specialization_name}`] = true;
+    if (specCounts[item.specialization_name] !== undefined) {
+      specCounts[item.specialization_name]++;
+    }
+  });
+
+  // Build table rows
+  let bodyHtml = '';
+  SPECIALIZATIONS_LIST.forEach(specName => {
+    bodyHtml += `<tr><td style="font-weight: 600;">${specName}</td>`;
+    state.matrixCharacters.forEach(c => {
+      const hasIt = specLookup[`${c.id}_${specName}`];
+      if (hasIt) {
+        bodyHtml += `<td class="status-cell" style="text-align: center;"><div class="cell-dot learned"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div></td>`;
+      } else {
+        bodyHtml += `<td class="status-cell" style="text-align: center;"><div class="cell-dot" style="opacity: 0.15;">-</div></td>`;
+      }
+    });
+    bodyHtml += '</tr>';
+  });
+  DOM.specTableEl.querySelector('tbody').innerHTML = bodyHtml;
+
+  // Gap analysis
+  const gaps = SPECIALIZATIONS_LIST.filter(s => specCounts[s] === 0);
+  if (gaps.length > 0) {
+    DOM.specGapAlerts.style.display = 'block';
+    let alertsHtml = `
+      <h4 style="color: var(--status-learning-glow); font-size: 0.95rem; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
+        <i data-lucide="alert-triangle"></i> Guild Specialization Gaps (${gaps.length} Missing)
+      </h4>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">No members in your guild have selected these critical specializations. Coordinate to respec or allocate them on level up:</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+    `;
+    gaps.forEach(g => {
+      alertsHtml += `<span class="badge" style="background: rgba(230, 76, 76, 0.1); border-color: rgba(230, 76, 76, 0.2); color: var(--status-learning);">${g.split(' (')[0]}</span>`;
+    });
+    alertsHtml += '</div>';
+    DOM.specGapAlerts.innerHTML = alertsHtml;
+  } else {
+    DOM.specGapAlerts.style.display = 'none';
+  }
+
+  // Render Mobile Specializations List Card View
+  let mobileHtml = '';
+  SPECIALIZATIONS_LIST.forEach(specName => {
+    const membersWhoHaveIt = guildSpecs
+      .filter(item => item.specialization_name === specName)
+      .map(item => item.character_name);
+    
+    if (membersWhoHaveIt.length > 0) {
+      mobileHtml += `
+        <div class="mobile-card glass-panel" style="margin-bottom: 12px; padding: 15px;">
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--text-main);">${specName}</h4>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            <label style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--status-learned-glow); margin-bottom: 4px;">Known By</label>
+            <div>${membersWhoHaveIt.join(', ')}</div>
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  if (!mobileHtml) {
+    mobileHtml = '<p class="empty-state">No specializations found.</p>';
+  }
+  DOM.mobileSpecView.innerHTML = mobileHtml;
+
+  lucide.createIcons();
+}
+
+function toggleCoordinatorView(view) {
+  state.activeCoordinatorView = view;
+  if (view === 'recipe') {
+    DOM.showRecipeMatrixBtn.classList.add('active');
+    DOM.showRecipeMatrixBtn.classList.replace('secondary-btn', 'primary-btn');
+    DOM.showSpecMatrixBtn.classList.remove('active');
+    DOM.showSpecMatrixBtn.classList.replace('primary-btn', 'secondary-btn');
+    DOM.recipeMatrixViewBlock.classList.remove('hidden');
+    DOM.specMatrixViewBlock.classList.add('hidden');
+    loadMatrix();
+  } else {
+    DOM.showSpecMatrixBtn.classList.add('active');
+    DOM.showSpecMatrixBtn.classList.replace('secondary-btn', 'primary-btn');
+    DOM.showRecipeMatrixBtn.classList.remove('active');
+    DOM.showRecipeMatrixBtn.classList.replace('primary-btn', 'secondary-btn');
+    DOM.recipeMatrixViewBlock.classList.add('hidden');
+    DOM.specMatrixViewBlock.classList.remove('hidden');
+    loadSpecializationMatrix();
+  }
 }
 
 // Toggles recipe state directly from matrix if you own the character
@@ -780,8 +1036,32 @@ async function renderCharacterDetail() {
   DOM.charGuildBox.innerHTML = guildHtml;
   lucide.createIcons();
 
+  // Render specializations checklist
+  let specCheckboxesHtml = '';
+  SPECIALIZATIONS_LIST.forEach((specName, index) => {
+    specCheckboxesHtml += `
+      <div class="checkbox-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+        <input type="checkbox" id="spec-checkbox-${index}" value="${specName}" class="char-spec-cb">
+        <label for="spec-checkbox-${index}" style="font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">${specName}</label>
+      </div>
+    `;
+  });
+  DOM.charSpecCheckboxes.innerHTML = specCheckboxesHtml;
+  DOM.charSpecChecklistContainer.classList.remove('hidden');
+
   // Load recipes list with user status checks
   await loadRecipeChecklist(char.id);
+
+  // Fetch active specializations and check boxes
+  try {
+    const activeSpecs = await apiCall(`/characters/${char.id}/specializations`);
+    const activeSet = new Set(activeSpecs);
+    document.querySelectorAll('.char-spec-cb').forEach(cb => {
+      cb.checked = activeSet.has(cb.value);
+    });
+  } catch (err) {
+    console.error("Error loading character specializations:", err);
+  }
 }
 
 async function loadRecipeChecklist(charId) {
@@ -1076,11 +1356,18 @@ function filterCatalogUI() {
   for (const r of filtered) {
     html += `
       <div class="catalog-item glass-panel">
-        <h4>${r.item_name}</h4>
-        <p class="formula"><strong>Formula:</strong> ${r.formula || 'No recipe ingredients recorded'}</p>
-        <div class="meta-row">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+          <h4 style="margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${r.item_name}</h4>
+          ${r.formula ? `
+            <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
+              <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
+            </button>
+          ` : ''}
+        </div>
+        <p class="formula" style="margin-top: 8px;"><strong>Formula:</strong> ${r.formula || 'No recipe ingredients recorded'}</p>
+        <div class="meta-row" style="margin-top: 10px;">
           <span class="badge primary">${r.category}</span>
-          ${r.acquired_by ? `<span class="badge">Source: ${r.acquired_by}</span>` : ''}
+          ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
         </div>
       </div>
     `;
@@ -1184,6 +1471,37 @@ function initEventListeners() {
     renderRecipeChecklistUI();
   });
 
+  // Characters Tab - Specializations saving
+  DOM.saveCharSpecsBtn.addEventListener('click', async () => {
+    if (!state.activeCharacterId) return;
+    const selectedSpecs = [];
+    document.querySelectorAll('.char-spec-cb').forEach(cb => {
+      if (cb.checked) {
+        selectedSpecs.push(cb.value);
+      }
+    });
+
+    try {
+      DOM.saveCharSpecsBtn.disabled = true;
+      DOM.saveCharSpecsBtn.textContent = 'Saving...';
+      await apiCall(`/characters/${state.activeCharacterId}/specializations`, 'POST', {
+        specializations: selectedSpecs
+      });
+      showToast("Specializations saved successfully!", false);
+      
+      // If we are looking at the specialization matrix, refresh it!
+      if (state.activeCoordinatorView === 'spec') {
+        loadSpecializationMatrix();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save specializations.", true);
+    } finally {
+      DOM.saveCharSpecsBtn.disabled = false;
+      DOM.saveCharSpecsBtn.textContent = 'Save Specializations';
+    }
+  });
+
   // Character deletion
   DOM.deleteCharBtn.addEventListener('click', async () => {
     if (confirm("Are you sure you want to delete this character permanently? This wipes all recipe progress!")) {
@@ -1209,13 +1527,20 @@ function initEventListeners() {
 
   document.querySelectorAll('.close-modal-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      DOM.createCharModal.classList.add('hidden');
-      DOM.migrateCharModal.classList.add('hidden');
-      DOM.submitRecipeModal.classList.add('hidden');
-      DOM.joinGuildModal.classList.add('hidden');
-      DOM.createGuildModal.classList.add('hidden');
-      DOM.guildManagerModal.classList.add('hidden');
+      document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
     });
+  });
+
+  DOM.charSoloCheck.addEventListener('change', () => {
+    const isSolo = DOM.charSoloCheck.checked;
+    DOM.charOnlineFields.classList.toggle('hidden', isSolo);
+    if (isSolo) {
+      DOM.charNewScenario.removeAttribute('required');
+      DOM.charNewServer.removeAttribute('required');
+    } else {
+      DOM.charNewScenario.setAttribute('required', '');
+      DOM.charNewServer.setAttribute('required', '');
+    }
   });
 
   DOM.charNewScenario.addEventListener('change', () => {
@@ -1232,11 +1557,12 @@ function initEventListeners() {
 
   DOM.createCharForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    let scenario = DOM.charNewScenario.value;
-    if (scenario === 'custom') {
+    const isSolo = DOM.charSoloCheck.checked;
+    let scenario = isSolo ? "Solo" : DOM.charNewScenario.value;
+    if (!isSolo && scenario === 'custom') {
       scenario = DOM.charCustomScenario.value;
     }
-    const serverCode = DOM.charNewServer.value;
+    const serverCode = isSolo ? "Solo Tracking" : DOM.charNewServer.value;
     const name = DOM.charNewName.value;
     try {
       const server = await apiCall('/servers', 'POST', {
@@ -1247,13 +1573,19 @@ function initEventListeners() {
         name,
         server_id: server.id
       };
-      if (DOM.charJoinGuildCheck.checked) {
+      if (!isSolo && DOM.charJoinGuildCheck.checked) {
         body.guild_id = parseInt(DOM.charJoinGuildSelect.value, 10);
         body.join_passcode = DOM.charJoinGuildPasscode.value;
       }
       await apiCall('/characters', 'POST', body);
       showToast("Character created successfully!", false);
+      
+      // Reset form state
       DOM.createCharForm.reset();
+      DOM.charOnlineFields.classList.remove('hidden');
+      DOM.charNewScenario.setAttribute('required', '');
+      DOM.charNewServer.setAttribute('required', '');
+      
       DOM.createCharModal.classList.add('hidden');
       DOM.customScenarioGroup.classList.add('hidden');
       DOM.modalGuildJoinFields.classList.add('hidden');
@@ -1388,4 +1720,193 @@ function initEventListeners() {
       console.error(err);
     }
   });
+
+  // Coordinator Mode toggles
+  DOM.showRecipeMatrixBtn.addEventListener('click', () => toggleCoordinatorView('recipe'));
+  DOM.showSpecMatrixBtn.addEventListener('click', () => toggleCoordinatorView('spec'));
+
+  // Crafting Calculator triggers
+  DOM.openCalculatorBtn.addEventListener('click', () => {
+    DOM.calculatorModal.classList.remove('hidden');
+    renderCalculatorUI();
+  });
 }
+
+// Expose calculator functions to global scope for templates
+function addRecipeToCalculator(recipeId) {
+  const existing = state.calcQueue.find(item => item.recipeId === recipeId);
+  if (existing) {
+    existing.qty++;
+  } else {
+    state.calcQueue.push({ recipeId, qty: 1 });
+  }
+  showToast("Item added to Crafting Calculator!", false);
+  renderCalculatorUI();
+}
+
+function adjustQueueQty(recipeId, delta) {
+  const item = state.calcQueue.find(i => i.recipeId === recipeId);
+  if (item) {
+    item.qty += delta;
+    if (item.qty <= 0) {
+      removeFromQueue(recipeId);
+    } else {
+      renderCalculatorUI();
+    }
+  }
+}
+
+function removeFromQueue(recipeId) {
+  state.calcQueue = state.calcQueue.filter(i => i.recipeId !== recipeId);
+  renderCalculatorUI();
+}
+
+function copyCoordsToClipboard(coords) {
+  navigator.clipboard.writeText(coords).then(() => {
+    showToast(`Coordinates ${coords} copied! Paste in game chat to drop pin.`, false);
+  }).catch(err => {
+    console.error("Failed to copy coordinates:", err);
+    showToast("Failed to copy coordinates.", true);
+  });
+}
+
+function formatCoords(text) {
+  if (!text) return '';
+  return text.replace(/\[\s*-?\d+\s*,\s*-?\d+\s*\]/g, (match) => {
+    const clean = match.replace(/\s+/g, '');
+    return `
+      <span class="coord-pill" style="cursor: pointer; background: rgba(0, 242, 254, 0.15); border: 1px solid rgba(0, 242, 254, 0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; color: var(--status-learned-glow); vertical-align: middle; margin-left: 3px;" onclick="copyCoordsToClipboard('${clean}')" title="Click to copy waypoint pin coordinates">
+        <i data-lucide="copy" style="width: 12px; height: 12px; display: inline-block;"></i> ${clean}
+      </span>
+    `;
+  });
+}
+
+function parseFormulaString(formula) {
+  if (!formula) return [];
+  return formula.split(',').map(s => {
+    const parts = s.trim().match(/^(\d+)\s+(.+)$/);
+    if (parts) {
+      return { qty: parseInt(parts[1], 10), name: parts[2].trim() };
+    }
+    return { qty: 1, name: s.trim() };
+  }).filter(item => item.name.length > 0);
+}
+
+function calculateShoppingList() {
+  const rawMaterials = {};
+  const intermediateCrafts = {};
+  
+  function recurseIngredients(itemName, qty) {
+    const recipe = state.recipes.find(r => r.item_name.toLowerCase() === itemName.toLowerCase());
+    if (recipe && recipe.formula) {
+      intermediateCrafts[recipe.item_name] = (intermediateCrafts[recipe.item_name] || 0) + qty;
+      
+      const parsedIngredients = parseFormulaString(recipe.formula);
+      parsedIngredients.forEach(ing => {
+        recurseIngredients(ing.name, ing.qty * qty);
+      });
+    } else {
+      const cleanName = itemName.trim();
+      rawMaterials[cleanName] = (rawMaterials[cleanName] || 0) + qty;
+    }
+  }
+
+  state.calcQueue.forEach(item => {
+    const recipe = state.recipes.find(r => r.id === item.recipeId);
+    if (recipe) {
+      const parsedIngredients = parseFormulaString(recipe.formula);
+      parsedIngredients.forEach(ing => {
+        recurseIngredients(ing.name, ing.qty * item.qty);
+      });
+    }
+  });
+
+  let resultsHtml = '';
+  
+  resultsHtml += `<h5 style="color: var(--status-learned-glow); font-size: 0.85rem; margin-top: 5px; margin-bottom: 5px;">Raw Materials</h5>`;
+  const rawKeys = Object.keys(rawMaterials);
+  if (rawKeys.length === 0) {
+    resultsHtml += `<p style="color: var(--text-muted); font-size: 0.8rem; padding-left: 10px;">None</p>`;
+  } else {
+    rawKeys.sort().forEach(name => {
+      resultsHtml += `
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; padding: 4px 10px; border-bottom: 1px solid rgba(255,255,255,0.01);">
+          <span>${name}</span>
+          <strong style="color: var(--text-main); font-family: monospace;">x${rawMaterials[name]}</strong>
+        </div>
+      `;
+    });
+  }
+
+  resultsHtml += `<h5 style="color: var(--status-learning-glow); font-size: 0.85rem; margin-top: 15px; margin-bottom: 5px;">Intermediate Crafting Steps</h5>`;
+  const interKeys = Object.keys(intermediateCrafts);
+  if (interKeys.length === 0) {
+    resultsHtml += `<p style="color: var(--text-muted); font-size: 0.8rem; padding-left: 10px;">None</p>`;
+  } else {
+    interKeys.sort().forEach(name => {
+      const recipe = state.recipes.find(r => r.item_name === name);
+      let crafterHelp = '';
+      if (recipe) {
+        const knownCrafters = [];
+        state.matrixCharacters.forEach(c => {
+          const status = (state.matrixState[c.id] && state.matrixState[c.id][recipe.id]) || null;
+          if (status === 'learned') {
+            knownCrafters.push(c.name);
+          }
+        });
+        if (knownCrafters.length > 0) {
+          crafterHelp = `<span style="font-size: 0.7rem; color: var(--status-learned-glow); display: block;">Known by: ${knownCrafters.join(', ')}</span>`;
+        } else {
+          crafterHelp = `<span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Nobody in guild knows this</span>`;
+        }
+      }
+
+      resultsHtml += `
+        <div style="font-size: 0.8rem; padding: 4px 10px; border-bottom: 1px solid rgba(255,255,255,0.01);">
+          <div style="display: flex; justify-content: space-between;">
+            <span>Craft ${name}</span>
+            <strong style="color: var(--text-main); font-family: monospace;">x${intermediateCrafts[name]}</strong>
+          </div>
+          ${crafterHelp}
+        </div>
+      `;
+    });
+  }
+
+  DOM.calcShoppingList.innerHTML = resultsHtml;
+}
+
+function renderCalculatorUI() {
+  if (state.calcQueue.length === 0) {
+    DOM.calcQueueList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">Queue is empty. Add items from the catalog list below!</p>';
+    DOM.calcShoppingList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">No raw materials calculated.</p>';
+    return;
+  }
+
+  let queueHtml = '';
+  state.calcQueue.forEach(item => {
+    const recipe = state.recipes.find(r => r.id === item.recipeId);
+    if (!recipe) return;
+    queueHtml += `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.02);">
+        <div style="font-size: 0.85rem; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;">${recipe.item_name}</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn btn-sm secondary-btn" style="padding: 2px 6px; min-width: unset;" onclick="adjustQueueQty(${item.recipeId}, -1)">-</button>
+          <span style="font-size: 0.85rem; font-family: monospace; font-weight: bold; min-width: 15px; text-align: center;">${item.qty}</span>
+          <button class="btn btn-sm secondary-btn" style="padding: 2px 6px; min-width: unset;" onclick="adjustQueueQty(${item.recipeId}, 1)">+</button>
+          <button class="btn btn-sm danger-btn" style="padding: 2px 6px; min-width: unset; margin-left: 5px;" onclick="removeFromQueue(${item.recipeId})">x</button>
+        </div>
+      </div>
+    `;
+  });
+  DOM.calcQueueList.innerHTML = queueHtml;
+
+  calculateShoppingList();
+  lucide.createIcons();
+}
+
+window.addRecipeToCalculator = addRecipeToCalculator;
+window.adjustQueueQty = adjustQueueQty;
+window.removeFromQueue = removeFromQueue;
+window.copyCoordsToClipboard = copyCoordsToClipboard;
