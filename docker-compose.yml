@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  once-human-tracker:
+    build: .
+    container_name: once_human_crafting_tracker
+    restart: always
+    ports:
+      - "6660:6660"
+    volumes:
+      # Mount data folder to persist SQLite tracker.db
+      - ./data:/usr/src/app/data
+    environment:
+      - PORT=6660
+      - NODE_ENV=production

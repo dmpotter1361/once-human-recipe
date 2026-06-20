@@ -1,0 +1,19 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database states (important - do not upload local sqlite db)
+tracker.db
+data/
+*.db
+*.db-journal
+
+# Local Environment Variables
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db

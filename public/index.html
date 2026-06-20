@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Once Human Crafting Tracker - Stardust Network</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (simple and clean SVG icons) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Background Decorative Stardust Glows -->
+  <div class="stardust-glow glow-1"></div>
+  <div class="stardust-glow glow-2"></div>
+
+  <!-- Main Container -->
+  <div id="app">
+    
+    <!-- Auth Section (Visible if not logged in) -->
+    <header class="app-header">
+      <div class="logo">
+        <span class="logo-glow"><i data-lucide="orbit" class="icon-spin"></i> STARDUST</span>
+        <span class="logo-sub">RECIPE TRACKER</span>
+      </div>
+      <div id="auth-header-actions">
+        <!-- Will show logged in user or empty -->
+      </div>
+    </header>
+
+    <!-- Login / Register Section -->
+    <div id="auth-container" class="glass-panel auth-card">
+      <h2 id="auth-title">System Authorization</h2>
+      <p class="auth-desc">Connect to the guild stardust network to synchronize recipe data.</p>
+      
+      <div class="alert-box error-alert hidden" id="auth-error"></div>
+      
+      <form id="auth-form">
+        <div class="form-group">
+          <label for="auth-username"><i data-lucide="user"></i> Username</label>
+          <input type="text" id="auth-username" required placeholder="Enter username...">
+        </div>
+        <div class="form-group">
+          <label for="auth-password"><i data-lucide="lock"></i> Password</label>
+          <input type="password" id="auth-password" required placeholder="Enter password...">
+        </div>
+        
+        <button type="submit" class="btn primary-btn btn-glow" id="auth-submit-btn">
+          <span>Authorize</span> <i data-lucide="shield-check"></i>
+        </button>
+      </form>
+      
+      <div class="auth-toggle">
+        <span id="auth-toggle-text">New to the network?</span>
+        <a href="#" id="auth-toggle-link">Initialize Account</a>
+      </div>
+    </div>
+
+    <!-- Dashboard App Section (Hidden until logged in) -->
+    <div id="main-dashboard" class="hidden">
+      <!-- Tabs Navigation -->
+      <nav class="dashboard-tabs">
+        <button class="tab-btn active" data-tab="matrix-tab">
+          <i data-lucide="grid"></i> <span>Crafting Matrix</span>
+        </button>
+        <button class="tab-btn" data-tab="wishlist-tab">
+          <i data-lucide="heart"></i> <span>Guild Wishlist</span>
+        </button>
+        <button class="tab-btn" data-tab="characters-tab">
+          <i data-lucide="users"></i> <span>My Characters (Alts)</span>
+        </button>
+        <button class="tab-btn" data-tab="recipes-tab">
+          <i data-lucide="book-open"></i> <span>Recipe Catalog</span>
+        </button>
+        <button class="tab-btn admin-only hidden" data-tab="admin-tab" id="admin-tab-btn">
+          <i data-lucide="sliders"></i> <span>Admin Console</span>
+        </button>
+      </nav>
+
+      <!-- Global Notifications -->
+      <div id="notification-toast" class="toast hidden"></div>
+
+      <!-- Tab Content Area -->
+      <main class="tab-content">
+        
+        <!-- 1. CRAFTING MATRIX TAB -->
+        <section id="matrix-tab" class="tab-pane active">
+          <div class="pane-header">
+            <div>
+              <h2>Guild Crafting Matrix</h2>
+              <p>See who knows what recipes in your current server and scenario.</p>
+            </div>
+            <!-- Server / Scenario filter -->
+            <div class="filter-group">
+              <label for="matrix-server-select"><i data-lucide="server"></i> Target Server:</label>
+              <select id="matrix-server-select" class="glass-select">
+                <option value="">Select Server...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quick Filters -->
+          <div class="matrix-filters glass-panel">
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="matrix-search" placeholder="Search recipe or item name...">
+            </div>
+            <div class="category-buttons" id="matrix-category-filters">
+              <button class="cat-btn active" data-category="all">All</button>
+              <button class="cat-btn" data-category="Survival">Survival</button>
+              <button class="cat-btn" data-category="Combat">Combat</button>
+              <button class="cat-btn" data-category="Production">Production</button>
+              <button class="cat-btn" data-category="Exclusive">Exclusive</button>
+              <button class="cat-btn" data-category="Build">Build</button>
+            </div>
+          </div>
+
+          <!-- Crafting Matrix Table Container (PC/Desktop) -->
+          <div class="table-container glass-panel" id="desktop-matrix-view">
+            <table class="matrix-table" id="matrix-table-el">
+              <thead>
+                <!-- Will be injected by JS -->
+              </thead>
+              <tbody>
+                <!-- Will be injected by JS -->
+              </tbody>
+            </table>
+            <div class="empty-state hidden" id="matrix-empty">
+              <i data-lucide="info"></i>
+              <p>No characters or recipes found matching the current filters. Set up a character and join this server/scenario!</p>
+            </div>
+          </div>
+
+          <!-- Mobile Cards Layout (Context-Aware) -->
+          <div class="mobile-container hidden" id="mobile-matrix-view">
+            <!-- Will be injected by JS -->
+          </div>
+        </section>
+
+        <!-- 2. GUILD WISHLIST TAB -->
+        <section id="wishlist-tab" class="tab-pane">
+          <div class="pane-header">
+            <div>
+              <h2>Guild Wishlist & Targets</h2>
+              <p>Recipes that guild members are trying to learn, cross-referenced with who already knows them.</p>
+            </div>
+            <div class="filter-group">
+              <label for="wishlist-server-select"><i data-lucide="server"></i> Target Server:</label>
+              <select id="wishlist-server-select" class="glass-select">
+                <option value="">Select Server...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="wishlist-grid" id="wishlist-container">
+            <!-- Will be injected by JS -->
+          </div>
+        </section>
+
+        <!-- 3. MY CHARACTERS TAB -->
+        <section id="characters-tab" class="tab-pane">
+          <div class="grid-layout">
+            
+            <!-- Character list -->
+            <div class="glass-panel pane-section">
+              <h3>My Characters (Alts)</h3>
+              <p class="section-desc">Manage your characters. Only characters matching the current scenario are visible in the guild matrix.</p>
+              
+              <div class="character-list" id="my-characters-list">
+                <!-- Will be injected by JS -->
+              </div>
+
+              <div class="button-row">
+                <button class="btn secondary-btn" id="open-create-char-btn">
+                  <i data-lucide="plus"></i> Create Character (Alt)
+                </button>
+              </div>
+            </div>
+
+            <!-- Focus Character Detail & Checklist -->
+            <div class="glass-panel pane-section" id="character-detail-panel">
+              <div class="detail-header">
+                <div>
+                  <h3 id="detail-char-name">Select a Character</h3>
+                  <span class="badge" id="detail-char-server">No Server</span>
+                </div>
+                <div class="detail-actions">
+                  <button class="btn btn-sm danger-btn" id="delete-char-btn" title="Delete character"><i data-lucide="trash-2"></i></button>
+                  <button class="btn btn-sm primary-btn" id="migrate-char-btn-trigger"><i data-lucide="arrow-right-left"></i> Migrate Season</button>
+                </div>
+              </div>
+
+              <!-- Guild interaction box -->
+              <div class="guild-actions-box glass-panel" id="char-guild-box">
+                <!-- Will show current guild or options to join/create -->
+              </div>
+
+              <div id="char-recipe-checklist-container" class="hidden">
+                <div class="checklist-header">
+                  <h4>Recipe Checklist</h4>
+                  <div class="search-box checklist-search">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="checklist-search-input" placeholder="Filter recipes...">
+                  </div>
+                </div>
+                <div class="recipe-checklist-list" id="recipe-checklist-el">
+                  <!-- Injected by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create Character Modal -->
+          <div class="modal hidden" id="create-char-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3>Create Character (Alt)</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              <form id="create-char-form">
+                <div class="form-group">
+                  <label for="char-new-name">Character Name</label>
+                  <input type="text" id="char-new-name" required placeholder="Exact in-game character name...">
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="char-new-scenario">Scenario Name</label>
+                    <select id="char-new-scenario" class="glass-select" required>
+                      <option value="">Select Scenario...</option>
+                      <option value="The Way of Winter">The Way of Winter</option>
+                      <option value="Manibus">Manibus</option>
+                      <option value="Prismverse's Clash">Prismverse's Clash</option>
+                      <option value="Evolution's Call">Evolution's Call</option>
+                      <option value="custom">Register Custom Scenario...</option>
+                    </select>
+                  </div>
+                  <div class="form-group hidden" id="custom-scenario-group">
+                    <label for="char-custom-scenario">Custom Scenario Name</label>
+                    <input type="text" id="char-custom-scenario" placeholder="e.g. The Way of Winter II">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="char-new-server">Server Code / Number</label>
+                  <input type="text" id="char-new-server" required placeholder="e.g. X0001, PVE-01-0023">
+                </div>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" id="char-join-guild-check">
+                  <label for="char-join-guild-check">Join an Existing Guild immediately</label>
+                </div>
+                <div class="hidden" id="modal-guild-join-fields">
+                  <div class="form-group">
+                    <label for="char-join-guild-select">Select Guild</label>
+                    <select id="char-join-guild-select" class="glass-select">
+                      <!-- Injected by JS -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="char-join-guild-passcode">Guild Join Passcode</label>
+                    <input type="password" id="char-join-guild-passcode" placeholder="Enter guild passcode...">
+                  </div>
+                </div>
+                <button type="submit" class="btn primary-btn btn-glow">Create Character</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Migrate Scenario Modal -->
+          <div class="modal hidden" id="migrate-char-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3>Migrate Season / Server</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              <p class="modal-desc"><i data-lucide="alert-triangle"></i> Migrating a character resets their level to 1 and wipes all checked recipes for the new season. This is irreversible!</p>
+              <form id="migrate-char-form">
+                <div class="form-group">
+                  <label for="migrate-scenario">New Scenario</label>
+                  <select id="migrate-scenario" class="glass-select" required>
+                    <option value="">Select Scenario...</option>
+                    <option value="The Way of Winter">The Way of Winter</option>
+                    <option value="Manibus">Manibus</option>
+                    <option value="Prismverse's Clash">Prismverse's Clash</option>
+                    <option value="Evolution's Call">Evolution's Call</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="migrate-server">New Server Code / Number</label>
+                  <input type="text" id="migrate-server" required placeholder="e.g. X0002, PVE-01-0005">
+                </div>
+                <button type="submit" class="btn primary-btn danger-btn">Reset & Migrate Character</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. RECIPE CATALOG TAB -->
+        <section id="recipes-tab" class="tab-pane">
+          <div class="pane-header">
+            <div>
+              <h2>Recipe Catalog & Submissions</h2>
+              <p>Browse the global crafting index or submit a custom formula.</p>
+            </div>
+          </div>
+
+          <div class="grid-layout">
+            <!-- Catalog List -->
+            <div class="glass-panel pane-section">
+              <h3>Global Recipe Index</h3>
+              <div class="catalog-filters">
+                <div class="search-box">
+                  <i data-lucide="search"></i>
+                  <input type="text" id="catalog-search" placeholder="Search catalog...">
+                </div>
+                <select id="catalog-category-select" class="glass-select">
+                  <option value="all">All Categories</option>
+                  <option value="Survival">Survival</option>
+                  <option value="Combat">Combat</option>
+                  <option value="Production">Production</option>
+                  <option value="Exclusive">Exclusive</option>
+                  <option value="Build">Build</option>
+                </select>
+              </div>
+              <div class="catalog-list" id="global-catalog-list">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+
+            <!-- Submit custom recipe -->
+            <div class="glass-panel pane-section">
+              <h3>Submit New Recipe</h3>
+              <p class="section-desc">Add a custom formula to the database. It is immediately available locally. Submitting to the global catalog requires moderator review.</p>
+              
+              <div class="alert-box success-alert hidden" id="submit-recipe-success"></div>
+              <div class="alert-box error-alert hidden" id="submit-recipe-error"></div>
+
+              <form id="submit-recipe-form">
+                <div class="form-group">
+                  <label for="rec-new-name">Recipe / Item Name</label>
+                  <input type="text" id="rec-new-name" required placeholder="e.g. Advanced Bio-Potion">
+                </div>
+                <div class="form-group">
+                  <label for="rec-new-formula">Formula / Ingredients</label>
+                  <textarea id="rec-new-formula" rows="3" placeholder="e.g. 5 Acid, 1 Glass, 2 Pure Water"></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="rec-new-category">Category</label>
+                    <select id="rec-new-category" class="glass-select" required>
+                      <option value="Survival">Survival</option>
+                      <option value="Combat">Combat</option>
+                      <option value="Production">Production</option>
+                      <option value="Exclusive">Exclusive</option>
+                      <option value="Build">Build</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="rec-new-acquired">Acquired By</label>
+                    <input type="text" id="rec-new-acquired" placeholder="e.g. Settlement Crates, Quest">
+                  </div>
+                </div>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" id="rec-submit-global" checked>
+                  <label for="rec-submit-global">Submit to Global Community Catalog (Requires Review)</label>
+                </div>
+                <button type="submit" class="btn primary-btn btn-glow">Submit Recipe</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. ADMIN CONSOLE TAB -->
+        <section id="admin-tab" class="tab-pane">
+          <div class="pane-header">
+            <div>
+              <h2>Stardust Admin Console</h2>
+              <p>Manage the global recipe catalog, verify user submissions, or run web scrapers.</p>
+            </div>
+          </div>
+
+          <div class="grid-layout">
+            <!-- Review queue -->
+            <div class="glass-panel pane-section">
+              <h3>Recipe Verification Queue</h3>
+              <p class="section-desc">Verify recipe suggestions from the community before they are published to the global matrix.</p>
+              
+              <div class="pending-list" id="admin-pending-list">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+
+            <!-- Admin tools -->
+            <div class="glass-panel pane-section">
+              <h3>System Utilities</h3>
+              
+              <!-- Web Scraper Card -->
+              <div class="admin-tool-card glass-panel">
+                <div class="tool-info">
+                  <h4><i data-lucide="globe"></i> Web Scraper Control</h4>
+                  <p>Crawl the Once Human wikis (`wiki.gg`) to discover new recipes automatically. Newly found recipes are placed into the verification queue above.</p>
+                </div>
+                <div class="tool-actions">
+                  <div class="checkbox-group">
+                    <input type="checkbox" id="scraper-use-mock" checked>
+                    <label for="scraper-use-mock">Run in Mock / Demo mode (Fast Offline Demo)</label>
+                  </div>
+                  <button class="btn primary-btn" id="run-scraper-btn">
+                    <span>Execute Scraper Scan</span> <i data-lucide="play"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Scenario resets -->
+              <div class="admin-tool-card glass-panel delete-card">
+                <div class="tool-info">
+                  <h4><i data-lucide="alert-octagon"></i> Scenario Season Reset</h4>
+                  <p>Irreversibly clear all player recipe progress and reset character levels to 1 for a specific Server/Scenario (e.g. at the end of a 6-week phase).</p>
+                </div>
+                <div class="tool-actions">
+                  <div class="form-group">
+                    <label for="admin-reset-server">Target Server:</label>
+                    <select id="admin-reset-server" class="glass-select">
+                      <!-- Injected by JS -->
+                    </select>
+                  </div>
+                  <button class="btn danger-btn" id="reset-scenario-btn">
+                    <span>Reset Selected Server Progress</span> <i data-lucide="zap"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+  </div>
+
+  <!-- Client-side Logic Script -->
+  <script src="app.js"></script>
+</body>
+</html>
