@@ -397,6 +397,32 @@
             <div class="glass-panel pane-section">
               <h3>System Utilities</h3>
               
+              <!-- Server Harvester Card -->
+              <div class="admin-tool-card glass-panel">
+                <div class="tool-info">
+                  <h4><i data-lucide="server"></i> Server Code Harvester</h4>
+                  <p>Paste raw text containing Once Human server codes (like ban lists or announcements) to automatically scan, parse, and register new server listings in your database.</p>
+                </div>
+                <div class="tool-actions">
+                  <div class="form-group">
+                    <label for="harvester-scenario-select">Scenario Group:</label>
+                    <select id="harvester-scenario-select" class="glass-select">
+                      <option value="The Way of Winter">The Way of Winter</option>
+                      <option value="Manibus">Manibus</option>
+                      <option value="Prismverse's Clash">Prismverse's Clash</option>
+                      <option value="Evolution's Call">Evolution's Call</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="harvester-text">Raw Text Content:</label>
+                    <textarea id="harvester-text" rows="4" placeholder="Paste server details or announcements containing codes like PVE-01-0023 or X0004..."></textarea>
+                  </div>
+                  <button class="btn primary-btn" id="run-harvester-btn">
+                    <span>Extract & Register Servers</span> <i data-lucide="download"></i>
+                  </button>
+                </div>
+              </div>
+
               <!-- Web Scraper Card -->
               <div class="admin-tool-card glass-panel">
                 <div class="tool-info">

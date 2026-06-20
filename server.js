@@ -569,6 +569,54 @@ app.post('/api/admin/reset-scenario', authenticate, requireAdmin, (req, res) => 
   }
 });
 
+// Harvest Server Codes from Raw text (Admin only)
+app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) => {
+  const { scenario_name, text } = req.body;
+  if (!scenario_name || !text) {
+    return res.status(400).json({ error: 'Scenario name and text are required' });
+  }
+
+  try {
+    // Regexes to extract standard Once Human server strings
+    const patterns = [
+      /(?:PVE|PVP)-\d{2}-\d{3,5}/gi,
+      /(?:PVE|PVP)-[A-Z]{2,3}-\d{2}-\d{3,5}/gi,
+      /X\d{4}/gi
+    ];
+
+    const foundServers = new Set();
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        foundServers.add(match[0].toUpperCase());
+      }
+    }
+
+    const newServers = [];
+    const insertServer = db.prepare(`
+      INSERT OR IGNORE INTO servers (name, scenario_name) VALUES (?, ?)
+    `);
+
+    for (const serverName of foundServers) {
+      const exists = db.prepare(`
+        SELECT 1 FROM servers WHERE name = ? AND scenario_name = ?
+      `).get(serverName, scenario_name);
+
+      if (!exists) {
+        insertServer.run(serverName, scenario_name);
+        newServers.push(serverName);
+      }
+    }
+
+    res.json({
+      message: `Scanned text. Found ${foundServers.size} codes. Registered ${newServers.length} new servers under '${scenario_name}'.`,
+      newServers
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`====================================================`);

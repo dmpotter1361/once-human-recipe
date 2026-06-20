@@ -120,6 +120,9 @@ function initDOM() {
     adminPendingList: document.getElementById('admin-pending-list'),
     scraperUseMock: document.getElementById('scraper-use-mock'),
     runScraperBtn: document.getElementById('run-scraper-btn'),
+    harvesterScenarioSelect: document.getElementById('harvester-scenario-select'),
+    harvesterText: document.getElementById('harvester-text'),
+    runHarvesterBtn: document.getElementById('run-harvester-btn'),
     adminResetServer: document.getElementById('admin-reset-server'),
     resetScenarioBtn: document.getElementById('reset-scenario-btn'),
     adminTabBtn: document.getElementById('admin-tab-btn'),
@@ -1187,6 +1190,36 @@ DOM.runScraperBtn.addEventListener('click', async () => {
   } finally {
     DOM.runScraperBtn.disabled = false;
     DOM.runScraperBtn.querySelector('span').textContent = 'Execute Scraper Scan';
+  }
+});
+
+// Execute Server Code Harvester
+DOM.runHarvesterBtn.addEventListener('click', async () => {
+  const scenario = DOM.harvesterScenarioSelect.value;
+  const text = DOM.harvesterText.value;
+  
+  if (!text.trim()) {
+    showToast("Please paste some text containing server codes to harvest.", true);
+    return;
+  }
+  
+  DOM.runHarvesterBtn.disabled = true;
+  DOM.runHarvesterBtn.querySelector('span').textContent = 'Extracting...';
+  
+  try {
+    const res = await apiCall('/admin/harvest-servers', 'POST', {
+      scenario_name: scenario,
+      text: text
+    });
+    
+    showToast(res.message, false);
+    DOM.harvesterText.value = ''; // Clear text
+    await loadMetadata(); // Reload dropdown metadata with new servers
+  } catch (err) {
+    console.error(err);
+  } finally {
+    DOM.runHarvesterBtn.disabled = false;
+    DOM.runHarvesterBtn.querySelector('span').textContent = 'Extract & Register Servers';
   }
 });
 
