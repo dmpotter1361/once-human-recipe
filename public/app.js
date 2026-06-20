@@ -67,6 +67,7 @@ function initDOM() {
     authContainer: document.getElementById('auth-container'),
     mainDashboard: document.getElementById('main-dashboard'),
     authTitle: document.getElementById('auth-title'),
+    authDesc: document.getElementById('auth-desc'),
     authForm: document.getElementById('auth-form'),
     authUsername: document.getElementById('auth-username'),
     authPassword: document.getElementById('auth-password'),

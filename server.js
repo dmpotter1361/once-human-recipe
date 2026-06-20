@@ -742,12 +742,54 @@ app.post('/api/admin/reset-scenario', authenticate, requireAdmin, (req, res) => 
   }
 });
 
+// Helper to infer Once Human scenario from server name prefix
+function inferScenario(serverName, fallbackScenario) {
+  const upper = serverName.toUpperCase();
+  
+  if (upper.includes('MANIBUS')) {
+    return 'Manibus';
+  }
+  if (upper.includes('E_DREAM') || upper.includes('EDREAM') || upper.includes('ENDLESS_DREAM')) {
+    return 'Endless Dream';
+  }
+  if (upper.includes('WINTER') || upper.includes('WAY_OF_WINTER')) {
+    return 'The Way of Winter';
+  }
+  if (upper.includes('PRISM') || upper.includes('PRISMVERSE')) {
+    return "Prismverse's Clash";
+  }
+  if (upper.includes('EVOLUTION') || upper.includes('EVOLUTIONS_CALL') || upper.includes('EVOLUTION_CALL')) {
+    return "Evolution's Call";
+  }
+  if (upper.includes('NOVICE')) {
+    return 'Novice';
+  }
+
+  // Attempt to parse general prefix before the suffix
+  // e.g. "SCENARIO-X0001", "SCENARIO_S-00001", "SCENARIO-PVE-01-0001"
+  const prefixMatch = serverName.match(/^([A-Z0-9_]+?)(?:-|_)X\d+/i) || 
+                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)S-\d+/i) ||
+                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)(?:PVE|PVP)-\d+/i);
+                      
+  if (prefixMatch && prefixMatch[1]) {
+    const rawPrefix = prefixMatch[1].toUpperCase();
+    if (rawPrefix !== 'PVE' && rawPrefix !== 'PVP') {
+      const words = rawPrefix.split(/_+|-+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+      return words.join(' ');
+    }
+  }
+
+  return fallbackScenario || 'Standard';
+}
+
 // Harvest Server Codes from Raw text (Admin only)
 app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) => {
   const { scenario_name, text } = req.body;
-  if (!scenario_name || !text) {
-    return res.status(400).json({ error: 'Scenario name and text are required' });
+  if (!text) {
+    return res.status(400).json({ error: 'Text content is required for harvesting' });
   }
+
+  const fallbackScenario = scenario_name || 'Standard';
 
   try {
     // Regexes to extract standard Once Human server strings
@@ -778,62 +820,67 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
       }
     }
 
-    // 2. Database level checks/updates
+    // 2. Database level checks/updates across all scenarios
     const newServers = [];
     const existingServers = db.prepare(`
-      SELECT id, name FROM servers WHERE scenario_name = ?
-    `).all(scenario_name);
+      SELECT id, name, scenario_name FROM servers
+    `).all();
 
     const insertServer = db.prepare(`
       INSERT INTO servers (name, scenario_name) VALUES (?, ?)
     `);
 
     const updateServerName = db.prepare(`
-      UPDATE servers SET name = ? WHERE id = ?
+      UPDATE servers SET name = ?, scenario_name = ? WHERE id = ?
     `);
 
     for (const serverName of dedupedList) {
+      const scenario = inferScenario(serverName, fallbackScenario);
       let isDuplicate = false;
       let matchedServerId = null;
       let shouldUpdateName = false;
 
       for (const existing of existingServers) {
-        if (existing.name === serverName) {
-          isDuplicate = true;
-          break;
-        }
+        // Match within same scenario or check for shorthand conversion
+        if (existing.scenario_name === scenario) {
+          if (existing.name === serverName) {
+            isDuplicate = true;
+            break;
+          }
 
-        // Scenario A: DB has shorthand (e.g. "X0183"), incoming is full (e.g. "MANIBUS-X0183")
-        // Update database record to full name so we preserve character associations but upgrade name
-        if (serverName.endsWith('-' + existing.name) || serverName.endsWith('_' + existing.name)) {
-          matchedServerId = existing.id;
-          shouldUpdateName = true;
-          break;
-        }
+          // DB has shorthand, incoming is full
+          if (serverName.endsWith('-' + existing.name) || serverName.endsWith('_' + existing.name)) {
+            matchedServerId = existing.id;
+            shouldUpdateName = true;
+            break;
+          }
 
-        // Scenario B: DB has full (e.g. "MANIBUS-X0183"), incoming is shorthand (e.g. "X0183")
-        // Keep the database's full name, skip registering shorthand
-        if (existing.name.endsWith('-' + serverName) || existing.name.endsWith('_' + serverName)) {
-          isDuplicate = true;
-          break;
+          // DB has full, incoming is shorthand
+          if (existing.name.endsWith('-' + serverName) || existing.name.endsWith('_' + serverName)) {
+            isDuplicate = true;
+            break;
+          }
         }
       }
 
       if (shouldUpdateName && matchedServerId !== null) {
-        updateServerName.run(serverName, matchedServerId);
-        newServers.push(`${serverName} (Updated from shorthand)`);
-        // Update cache so subsequent items in this loop don't match old name
+        updateServerName.run(serverName, scenario, matchedServerId);
+        newServers.push(`${serverName} (Updated shorthand in '${scenario}')`);
+        // Update local cache
         const ext = existingServers.find(e => e.id === matchedServerId);
-        if (ext) ext.name = serverName;
+        if (ext) {
+          ext.name = serverName;
+          ext.scenario_name = scenario;
+        }
       } else if (!isDuplicate) {
-        insertServer.run(serverName, scenario_name);
-        newServers.push(serverName);
-        existingServers.push({ name: serverName });
+        insertServer.run(serverName, scenario);
+        newServers.push(`${serverName} ('${scenario}')`);
+        existingServers.push({ name: serverName, scenario_name: scenario });
       }
     }
 
     res.json({
-      message: `Scanned text. Found ${foundServers.size} raw codes. Registered/updated ${newServers.length} servers under '${scenario_name}'.`,
+      message: `Scanned text. Found ${foundServers.size} raw codes. Registered/updated ${newServers.length} servers.`,
       newServers
     });
   } catch (err) {

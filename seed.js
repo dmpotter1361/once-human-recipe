@@ -45,20 +45,23 @@ function seed() {
     insertServer.run(s.name, s.scenario);
   }
 
-  // 2. Seed Default Admin User
-  // For simplicity in this demo, password is stored plaintext or with a simple mock hash.
-  // We'll use a simple plain text string for the mock auth since security is not critical,
-  // but we can also use bcrypt/crypto. Node.js has a built-in crypto module!
   const crypto = require('crypto');
   const adminUsername = 'admin';
   const adminPassword = 'admin123';
   const passwordHash = crypto.createHash('sha256').update(adminPassword).digest('hex');
 
-  const insertUser = db.prepare(`
-    INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, 'admin')
-  `);
-  insertUser.run(adminUsername, passwordHash);
-  console.log(`Default admin created: username: '${adminUsername}', password: '${adminPassword}'`);
+  const existingAdmin = db.prepare(`SELECT id, role FROM users WHERE username = ?`).get(adminUsername);
+  if (!existingAdmin) {
+    db.prepare(`
+      INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')
+    `).run(adminUsername, passwordHash);
+    console.log(`Default admin created: username: '${adminUsername}', password: '${adminPassword}'`);
+  } else {
+    db.prepare(`
+      UPDATE users SET role = 'admin', password_hash = ? WHERE id = ?
+    `).run(passwordHash, existingAdmin.id);
+    console.log(`Default admin verified/reset: username: '${adminUsername}', role forced to 'admin', password reset to default.`);
+  }
 
   // 3. Seed Recipes from CSV
   const csvPath = path.join(__dirname, 'once_human_crafting_formulas.csv');
