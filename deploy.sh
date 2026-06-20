@@ -8,7 +8,7 @@
 # ==============================================================================
 
 # --- Remote Server Details (Tweak these as needed) ---
-SERVER_USER="micha"                         # Your server username
+SERVER_USER="your-ssh-username"                         # Your server username
 SERVER_HOST="your-server-ip-or-domain"       # Your server IP or domain name
 DEPLOY_DIR="~/OnceHuman-Recipe"             # Path on remote server where app will live
 

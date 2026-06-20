@@ -115,6 +115,8 @@ function initDOM() {
     recSubmitGlobal: document.getElementById('rec-submit-global'),
     submitRecipeSuccess: document.getElementById('submit-recipe-success'),
     submitRecipeError: document.getElementById('submit-recipe-error'),
+    openSubmitRecipeBtn: document.getElementById('open-submit-recipe-btn'),
+    submitRecipeModal: document.getElementById('submit-recipe-modal'),
     
     // Admin Tab
     adminPendingList: document.getElementById('admin-pending-list'),
@@ -932,15 +934,20 @@ DOM.deleteCharBtn.addEventListener('click', async () => {
   }
 });
 
-// Create character alt modal controls
+// Create character alt / recipe submission modal controls
 DOM.openCreateCharBtn.addEventListener('click', () => {
   DOM.createCharModal.classList.remove('hidden');
+});
+
+DOM.openSubmitRecipeBtn.addEventListener('click', () => {
+  DOM.submitRecipeModal.classList.remove('hidden');
 });
 
 document.querySelectorAll('.close-modal-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     DOM.createCharModal.classList.add('hidden');
     DOM.migrateCharModal.classList.add('hidden');
+    DOM.submitRecipeModal.classList.add('hidden');
   });
 });
 
@@ -1101,9 +1108,9 @@ DOM.submitRecipeForm.addEventListener('submit', async (e) => {
       submit_to_global
     });
 
-    DOM.submitRecipeSuccess.textContent = res.message;
-    DOM.submitRecipeSuccess.classList.remove('hidden');
+    showToast(res.message || "Recipe submitted successfully!", false);
     DOM.submitRecipeForm.reset();
+    DOM.submitRecipeModal.classList.add('hidden');
     
     await loadCatalog();
   } catch (err) {

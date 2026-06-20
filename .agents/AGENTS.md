@@ -5,7 +5,7 @@ This directory is the workspace for the OnceHuman Recipe project. It contains th
 ## Memory & Context
 
 - **Source Spreadsheet:** [Once Human Crafting Formulas (Google Sheets)](https://docs.google.com/spreadsheets/d/1EdV5RekBIv9EaTtfc3lNPHfadZVBcGMWcsUqz1krEjI/edit?usp=sharing)
-- **CSV Location:** [once_human_crafting_formulas.csv](file:///C:/Users/micha/Projects/OnceHuman%20Recipe/once_human_crafting_formulas.csv)
+- **CSV Location:** [once_human_crafting_formulas.csv](once_human_crafting_formulas.csv)
 - **Data Columns:**
   - `Item`: The name of the crafted item or recipe.
   - `Formula`: The materials and components required for crafting.

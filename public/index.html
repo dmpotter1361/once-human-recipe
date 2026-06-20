@@ -302,38 +302,44 @@
         <section id="recipes-tab" class="tab-pane">
           <div class="pane-header">
             <div>
-              <h2>Recipe Catalog & Submissions</h2>
-              <p>Browse the global crafting index or submit a custom formula.</p>
+              <h2>Recipe Catalog & Search</h2>
+              <p>Browse the global crafting index and lookup formulas.</p>
+            </div>
+            <button class="btn secondary-btn" id="open-submit-recipe-btn">
+              <i data-lucide="plus"></i> Submit Custom Recipe
+            </button>
+          </div>
+
+          <div class="glass-panel pane-section full-width-pane">
+            <div class="catalog-filters">
+              <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="catalog-search" placeholder="Search catalog for item or formula...">
+              </div>
+              <select id="catalog-category-select" class="glass-select" style="max-width: 200px;">
+                <option value="all">All Categories</option>
+                <option value="Survival">Survival</option>
+                <option value="Combat">Combat</option>
+                <option value="Production">Production</option>
+                <option value="Exclusive">Exclusive</option>
+                <option value="Build">Build</option>
+              </select>
+            </div>
+            <div class="catalog-list grid-list" id="global-catalog-list">
+              <!-- Injected by JS -->
             </div>
           </div>
 
-          <div class="grid-layout">
-            <!-- Catalog List -->
-            <div class="glass-panel pane-section">
-              <h3>Global Recipe Index</h3>
-              <div class="catalog-filters">
-                <div class="search-box">
-                  <i data-lucide="search"></i>
-                  <input type="text" id="catalog-search" placeholder="Search catalog...">
-                </div>
-                <select id="catalog-category-select" class="glass-select">
-                  <option value="all">All Categories</option>
-                  <option value="Survival">Survival</option>
-                  <option value="Combat">Combat</option>
-                  <option value="Production">Production</option>
-                  <option value="Exclusive">Exclusive</option>
-                  <option value="Build">Build</option>
-                </select>
+          <!-- Submit custom recipe Modal -->
+          <div class="modal hidden" id="submit-recipe-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3>Submit New Recipe</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
               </div>
-              <div class="catalog-list" id="global-catalog-list">
-                <!-- Injected by JS -->
-              </div>
-            </div>
-
-            <!-- Submit custom recipe -->
-            <div class="glass-panel pane-section">
-              <h3>Submit New Recipe</h3>
-              <p class="section-desc">Add a custom formula to the database. It is immediately available locally. Submitting to the global catalog requires moderator review.</p>
+              <p class="modal-desc" style="color: var(--text-muted); margin-bottom: 20px;">
+                Add a custom formula. It is immediately available locally. Submitting to the global catalog requires moderator review.
+              </p>
               
               <div class="alert-box success-alert hidden" id="submit-recipe-success"></div>
               <div class="alert-box error-alert hidden" id="submit-recipe-error"></div>
@@ -367,7 +373,7 @@
                   <input type="checkbox" id="rec-submit-global" checked>
                   <label for="rec-submit-global">Submit to Global Community Catalog (Requires Review)</label>
                 </div>
-                <button type="submit" class="btn primary-btn btn-glow">Submit Recipe</button>
+                <button type="submit" class="btn primary-btn btn-glow" style="width: 100%;">Submit Recipe</button>
               </form>
             </div>
           </div>
