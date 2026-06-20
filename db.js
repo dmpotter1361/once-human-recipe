@@ -27,7 +27,9 @@ function initSchema() {
     CREATE TABLE IF NOT EXISTS guilds (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
-      join_passcode TEXT NOT NULL
+      join_passcode TEXT NOT NULL,
+      creator_id INTEGER,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS servers (
@@ -80,6 +82,14 @@ function initSchema() {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+
+  // Run migration for existing databases
+  try {
+    db.exec(`ALTER TABLE guilds ADD COLUMN creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
+    console.log("Migration: Added creator_id column to guilds table.");
+  } catch (err) {
+    // Column already exists, ignore
+  }
 }
 
 module.exports = {

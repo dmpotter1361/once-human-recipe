@@ -108,6 +108,7 @@ function initDOM() {
     catalogSearch: document.getElementById('catalog-search'),
     catalogCategorySelect: document.getElementById('catalog-category-select'),
     catalogSourceSelect: document.getElementById('catalog-source-select'),
+    catalogSortSelect: document.getElementById('catalog-sort-select'),
     globalCatalogList: document.getElementById('global-catalog-list'),
     submitRecipeForm: document.getElementById('submit-recipe-form'),
     recNewName: document.getElementById('rec-new-name'),
@@ -119,6 +120,26 @@ function initDOM() {
     submitRecipeError: document.getElementById('submit-recipe-error'),
     openSubmitRecipeBtn: document.getElementById('open-submit-recipe-btn'),
     submitRecipeModal: document.getElementById('submit-recipe-modal'),
+    
+    // Guild Modals & Managers
+    joinGuildModal: document.getElementById('join-guild-modal'),
+    joinGuildForm: document.getElementById('join-guild-form'),
+    joinGuildSelect: document.getElementById('join-guild-select'),
+    joinGuildPasscode: document.getElementById('join-guild-passcode'),
+    
+    createGuildModal: document.getElementById('create-guild-modal'),
+    createGuildForm: document.getElementById('create-guild-form'),
+    createGuildName: document.getElementById('create-guild-name'),
+    createGuildPasscode: document.getElementById('create-guild-passcode'),
+    
+    guildManagerModal: document.getElementById('guild-manager-modal'),
+    guildManagerTitle: document.getElementById('guild-manager-title'),
+    guildManagerSettingsBlock: document.getElementById('guild-manager-settings-block'),
+    guildManagerCurrentPasscode: document.getElementById('guild-manager-current-passcode'),
+    guildManagerPasscodeInput: document.getElementById('guild-manager-passcode-input'),
+    guildManagerUpdatePasscodeBtn: document.getElementById('guild-manager-update-passcode-btn'),
+    guildManagerDisbandBtn: document.getElementById('guild-manager-disband-btn'),
+    guildManagerMembersList: document.getElementById('guild-manager-members-list'),
     
     // Admin Tab
     adminPendingList: document.getElementById('admin-pending-list'),
@@ -739,7 +760,10 @@ async function renderCharacterDetail() {
         <label>Active Guild</label>
         <h4>${char.guild_name}</h4>
       </div>
-      <button class="btn btn-sm danger-btn" onclick="leaveGuild(${char.id})">Leave Guild</button>
+      <div class="form-row" style="margin-top: 10px;">
+        <button class="btn btn-sm secondary-btn" onclick="openGuildManagerModal(${char.guild_id})"><i data-lucide="sliders"></i> Manage Guild</button>
+        <button class="btn btn-sm danger-btn" onclick="leaveGuild(${char.id})">Leave Guild</button>
+      </div>
     `;
   } else {
     guildHtml = `
@@ -754,6 +778,7 @@ async function renderCharacterDetail() {
     `;
   }
   DOM.charGuildBox.innerHTML = guildHtml;
+  lucide.createIcons();
 
   // Load recipes list with user status checks
   await loadRecipeChecklist(char.id);
@@ -851,13 +876,32 @@ async function leaveGuild(charId) {
 window.leaveGuild = leaveGuild;
 
 function openJoinGuildModal(charId) {
-  // Simple prompt overlay for simplicity
-  const guildId = prompt(`Select Guild ID:\n` + state.guilds.map(g => `${g.id}: ${g.name}`).join('\n'));
-  if (!guildId) return;
-  const passcode = prompt("Enter Guild Join Passcode:");
-  if (passcode === null) return;
-
-  joinGuild(charId, parseInt(guildId, 10), passcode);
+  DOM.joinGuildSelect.innerHTML = '<option value="">Select Guild to Join...</option>';
+  for (const g of state.guilds) {
+    DOM.joinGuildSelect.add(new Option(g.name, g.id));
+  }
+  
+  DOM.joinGuildForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const guildId = parseInt(DOM.joinGuildSelect.value, 10);
+    const passcode = DOM.joinGuildPasscode.value.trim();
+    
+    try {
+      await apiCall(`/characters/${charId}/join-guild`, 'POST', {
+        guild_id: guildId,
+        join_passcode: passcode
+      });
+      showToast("Joined guild successfully!", false);
+      state.activeGuildId = guildId;
+      DOM.joinGuildForm.reset();
+      DOM.joinGuildModal.classList.add('hidden');
+      await loadCharacters();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  DOM.joinGuildModal.classList.remove('hidden');
 }
 window.openJoinGuildModal = openJoinGuildModal;
 
@@ -876,30 +920,122 @@ async function joinGuild(charId, guildId, passcode) {
 }
 
 function openCreateGuildModal() {
-  const name = prompt("Enter new Guild Name:");
-  if (!name) return;
-  const passcode = prompt("Set Guild Join Passcode (others will use this to join):");
-  if (!passcode) return;
-
-  createGuild(name, passcode);
+  DOM.createGuildForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const name = DOM.createGuildName.value.trim();
+    const passcode = DOM.createGuildPasscode.value.trim();
+    
+    try {
+      const data = await apiCall('/guilds', 'POST', {
+        name,
+        join_passcode: passcode
+      });
+      showToast("Guild created successfully!", false);
+      DOM.createGuildForm.reset();
+      DOM.createGuildModal.classList.add('hidden');
+      await loadMetadata();
+      if (state.activeCharacterId) {
+        await joinGuild(state.activeCharacterId, data.guildId, passcode);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  DOM.createGuildModal.classList.remove('hidden');
 }
 window.openCreateGuildModal = openCreateGuildModal;
 
-async function createGuild(name, passcode) {
+async function openGuildManagerModal(guildId) {
   try {
-    const data = await apiCall('/guilds', 'POST', {
-      name,
-      join_passcode: passcode
-    });
-    showToast("Guild created successfully!", false);
-    await loadMetadata();
-    if (state.activeCharacterId) {
-      await joinGuild(state.activeCharacterId, data.guildId, passcode);
+    const data = await apiCall(`/guilds/${guildId}`);
+    
+    DOM.guildManagerTitle.textContent = `Guild Manager: ${data.name}`;
+    
+    if (data.is_creator) {
+      DOM.guildManagerSettingsBlock.classList.remove('hidden');
+      DOM.guildManagerCurrentPasscode.textContent = data.join_passcode;
+      DOM.guildManagerPasscodeInput.value = '';
+      
+      DOM.guildManagerUpdatePasscodeBtn.onclick = async () => {
+        const newPasscode = DOM.guildManagerPasscodeInput.value.trim();
+        if (!newPasscode) {
+          showToast("Please enter a new passcode.", true);
+          return;
+        }
+        try {
+          await apiCall(`/guilds/${guildId}/passcode`, 'PUT', { join_passcode: newPasscode });
+          showToast("Passcode updated successfully!", false);
+          DOM.guildManagerCurrentPasscode.textContent = newPasscode;
+          DOM.guildManagerPasscodeInput.value = '';
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      
+      DOM.guildManagerDisbandBtn.onclick = async () => {
+        if (confirm("CRITICAL WARNING!\nAre you sure you want to disband this guild? This removes all characters and deletes the guild permanently!")) {
+          try {
+            await apiCall(`/guilds/${guildId}`, 'DELETE');
+            showToast("Guild disbanded.", false);
+            DOM.guildManagerModal.classList.add('hidden');
+            await loadMetadata();
+            await loadCharacters();
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      };
+    } else {
+      DOM.guildManagerSettingsBlock.classList.add('hidden');
     }
+    
+    let html = '';
+    if (data.members.length === 0) {
+      html = '<p style="color: var(--text-muted); padding: 10px;">No characters in this guild.</p>';
+    } else {
+      for (const m of data.members) {
+        const isOwnCharacter = state.myCharacters.some(c => c.id === m.id);
+        const canKick = data.is_creator && !isOwnCharacter;
+        
+        html += `
+          <div class="recipe-checklist-item" style="margin-bottom: 5px;">
+            <div class="checklist-info">
+              <h5>${m.name} <span class="char-owner" style="display: inline;">@${m.owner_name}</span></h5>
+              <p>${m.server_name} (${m.scenario_name}) | Level ${m.level}</p>
+            </div>
+            ${canKick ? `
+              <button class="btn btn-sm danger-btn" onclick="kickGuildMember(${guildId}, ${m.id}, '${m.name}')">
+                Kick
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }
+    }
+    DOM.guildManagerMembersList.innerHTML = html;
+    
+    DOM.guildManagerModal.classList.remove('hidden');
+    lucide.createIcons();
   } catch (err) {
     console.error(err);
   }
 }
+window.openGuildManagerModal = openGuildManagerModal;
+
+async function kickGuildMember(guildId, characterId, name) {
+  if (confirm(`Are you sure you want to kick ${name} from the guild?`)) {
+    try {
+      await apiCall(`/guilds/${guildId}/kick`, 'POST', { character_id: characterId });
+      showToast(`${name} has been kicked.`, false);
+      await openGuildManagerModal(guildId);
+      await loadCharacters();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+window.kickGuildMember = kickGuildMember;
 
 // ================= 4. CATALOG TAB LOGIC ================= //
 
@@ -1076,6 +1212,9 @@ function initEventListeners() {
       DOM.createCharModal.classList.add('hidden');
       DOM.migrateCharModal.classList.add('hidden');
       DOM.submitRecipeModal.classList.add('hidden');
+      DOM.joinGuildModal.classList.add('hidden');
+      DOM.createGuildModal.classList.add('hidden');
+      DOM.guildManagerModal.classList.add('hidden');
     });
   });
 
@@ -1156,6 +1295,7 @@ function initEventListeners() {
   DOM.catalogSearch.addEventListener('input', () => filterCatalogUI());
   DOM.catalogCategorySelect.addEventListener('change', () => filterCatalogUI());
   DOM.catalogSourceSelect.addEventListener('change', () => filterCatalogUI());
+  DOM.catalogSortSelect.addEventListener('change', () => filterCatalogUI());
 
   // Submit Recipe Form
   DOM.submitRecipeForm.addEventListener('submit', async (e) => {

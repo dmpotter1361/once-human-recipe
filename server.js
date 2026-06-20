@@ -177,8 +177,8 @@ app.post('/api/guilds', authenticate, (req, res) => {
 
   try {
     const result = db.prepare(`
-      INSERT INTO guilds (name, join_passcode) VALUES (?, ?)
-    `).run(name, join_passcode);
+      INSERT INTO guilds (name, join_passcode, creator_id) VALUES (?, ?, ?)
+    `).run(name, join_passcode, req.user.id);
 
     res.status(201).json({ guildId: result.lastInsertRowid, name });
   } catch (err) {
@@ -194,6 +194,123 @@ app.get('/api/guilds', authenticate, (req, res) => {
   try {
     const guilds = db.prepare('SELECT id, name FROM guilds ORDER BY name').all();
     res.json(guilds);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Guild Details & Member List
+app.get('/api/guilds/:id', authenticate, (req, res) => {
+  const guildId = req.params.id;
+
+  try {
+    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId);
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    const members = db.prepare(`
+      SELECT c.id, c.name, c.level, u.username as owner_name, s.name as server_name, s.scenario_name
+      FROM characters c
+      JOIN users u ON c.user_id = u.id
+      JOIN servers s ON c.server_id = s.id
+      WHERE c.guild_id = ?
+      ORDER BY c.name
+    `).all(guildId);
+
+    const isCreator = guild.creator_id === req.user.id;
+
+    res.json({
+      id: guild.id,
+      name: guild.name,
+      creator_id: guild.creator_id,
+      is_creator: isCreator,
+      // Only return the passcode to the creator
+      join_passcode: isCreator ? guild.join_passcode : null,
+      members
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Guild passcode (Creator only)
+app.put('/api/guilds/:id/passcode', authenticate, (req, res) => {
+  const guildId = req.params.id;
+  const { join_passcode } = req.body;
+
+  if (!join_passcode) {
+    return res.status(400).json({ error: 'New passcode is required' });
+  }
+
+  try {
+    const guild = db.prepare('SELECT creator_id FROM guilds WHERE id = ?').get(guildId);
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    if (guild.creator_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: Only the guild creator can change the passcode' });
+    }
+
+    db.prepare('UPDATE guilds SET join_passcode = ? WHERE id = ?').run(join_passcode, guildId);
+    res.json({ message: 'Guild passcode updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Kick member from Guild (Creator only)
+app.post('/api/guilds/:id/kick', authenticate, (req, res) => {
+  const guildId = req.params.id;
+  const { character_id } = req.body;
+
+  if (!character_id) {
+    return res.status(400).json({ error: 'character_id is required' });
+  }
+
+  try {
+    const guild = db.prepare('SELECT creator_id FROM guilds WHERE id = ?').get(guildId);
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    if (guild.creator_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: Only the guild creator can kick members' });
+    }
+
+    const result = db.prepare('UPDATE characters SET guild_id = NULL WHERE id = ? AND guild_id = ?').run(character_id, guildId);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Character not found in this guild' });
+    }
+
+    res.json({ message: 'Character kicked from guild successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Disband Guild (Creator only)
+app.delete('/api/guilds/:id', authenticate, (req, res) => {
+  const guildId = req.params.id;
+
+  try {
+    const guild = db.prepare('SELECT creator_id FROM guilds WHERE id = ?').get(guildId);
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    if (guild.creator_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: Only the guild creator can disband it' });
+    }
+
+    // 1. Remove all characters from this guild
+    db.prepare('UPDATE characters SET guild_id = NULL WHERE guild_id = ?').run(guildId);
+
+    // 2. Delete the guild
+    db.prepare('DELETE FROM guilds WHERE id = ?').run(guildId);
+
+    res.json({ message: 'Guild disbanded successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

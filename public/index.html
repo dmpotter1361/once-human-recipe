@@ -296,6 +296,79 @@
               </form>
             </div>
           </div>
+
+          <!-- Join Guild Modal -->
+          <div class="modal hidden" id="join-guild-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3>Join Guild</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              <form id="join-guild-form">
+                <div class="form-group">
+                  <label for="join-guild-select">Select Guild</label>
+                  <select id="join-guild-select" class="glass-select" required>
+                    <!-- Injected by JS -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="join-guild-passcode">Join Passcode</label>
+                  <input type="password" id="join-guild-passcode" required placeholder="Enter passcode...">
+                </div>
+                <button type="submit" class="btn primary-btn btn-glow">Join Guild</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Create Guild Modal -->
+          <div class="modal hidden" id="create-guild-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3>Create Guild</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              <form id="create-guild-form">
+                <div class="form-group">
+                  <label for="create-guild-name">Guild Name</label>
+                  <input type="text" id="create-guild-name" required placeholder="Enter new guild name...">
+                </div>
+                <div class="form-group">
+                  <label for="create-guild-passcode">Guild Join Passcode</label>
+                  <input type="password" id="create-guild-passcode" required placeholder="Set join passcode...">
+                </div>
+                <button type="submit" class="btn primary-btn btn-glow">Create Guild</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Guild Manager Modal -->
+          <div class="modal hidden" id="guild-manager-modal">
+            <div class="modal-content glass-panel" style="max-width: 600px;">
+              <div class="modal-header">
+                <h3 id="guild-manager-title">Guild Manager</h3>
+                <button class="close-modal-btn"><i data-lucide="x"></i></button>
+              </div>
+              
+              <div id="guild-manager-settings-block" class="hidden glass-panel" style="padding: 15px; margin-bottom: 20px; border-color: var(--status-learning-glow);">
+                <h4 style="font-size: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 5px;">Guild Settings (Creator Only)</h4>
+                <div class="form-group" style="margin-top: 10px; margin-bottom: 10px;">
+                  <label for="guild-manager-passcode-input">Passcode: <span id="guild-manager-current-passcode" style="color: var(--text-main); font-family: monospace; font-size: 0.95rem; margin-left: 5px;"></span></label>
+                  <div class="form-row" style="margin-top: 5px; grid-template-columns: 1fr auto;">
+                    <input type="text" id="guild-manager-passcode-input" placeholder="Change passcode...">
+                    <button class="btn btn-sm secondary-btn" id="guild-manager-update-passcode-btn">Update Passcode</button>
+                  </div>
+                </div>
+                <button class="btn btn-sm danger-btn" id="guild-manager-disband-btn" style="width: 100%; margin-top: 10px;">Disband Guild (Discharge all members)</button>
+              </div>
+
+              <div>
+                <h4 style="font-size: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 5px;">Guild Roster / Characters</h4>
+                <div class="recipe-checklist-list" id="guild-manager-members-list" style="margin-top: 10px; max-height: 250px;">
+                  <!-- Injected by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- 4. RECIPE CATALOG TAB -->
@@ -328,6 +401,11 @@
                 <option value="all">All Sources</option>
                 <option value="settlement">Settlement Containers</option>
                 <option value="recycling">Recycling Tool Pick-up</option>
+              </select>
+              <select id="catalog-sort-select" class="glass-select" style="max-width: 200px;">
+                <option value="name">Alphabetical (A-Z)</option>
+                <option value="category">Category</option>
+                <option value="source">Source</option>
               </select>
             </div>
             <div class="catalog-list grid-list" id="global-catalog-list">
