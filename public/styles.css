@@ -181,7 +181,8 @@ body {
   gap: 8px;
 }
 
-.logo-glow i {
+.logo-glow i,
+.logo-glow svg {
   color: var(--primary-cyan);
 }
 
@@ -547,7 +548,8 @@ input[type="checkbox"] {
   max-width: 400px;
 }
 
-.search-box i {
+.search-box i,
+.search-box svg {
   position: absolute;
   left: 12px;
   top: 50%;
@@ -706,7 +708,8 @@ input[type="checkbox"] {
   gap: 10px;
 }
 
-.empty-state i {
+.empty-state i,
+.empty-state svg {
   width: 40px;
   height: 40px;
 }
@@ -978,6 +981,7 @@ input[type="checkbox"] {
 /* ================= 4. RECIPE CATALOG TAB ================= */
 .catalog-filters {
   display: flex;
+  align-items: center;
   gap: 15px;
   margin-bottom: 20px;
 }
@@ -1003,6 +1007,7 @@ input[type="checkbox"] {
 
 .catalog-item .meta-row {
   display: flex;
+  align-items: flex-start;
   gap: 10px;
   font-size: 0.75rem;
 }

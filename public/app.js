@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initDOM();
   initAuth();
   initTabs();
+  initEventListeners();
   
   if (state.token) {
     showDashboard();
@@ -106,6 +107,7 @@ function initDOM() {
     // Catalog Tab
     catalogSearch: document.getElementById('catalog-search'),
     catalogCategorySelect: document.getElementById('catalog-category-select'),
+    catalogSourceSelect: document.getElementById('catalog-source-select'),
     globalCatalogList: document.getElementById('global-catalog-list'),
     submitRecipeForm: document.getElementById('submit-recipe-form'),
     recNewName: document.getElementById('rec-new-name'),
@@ -380,22 +382,6 @@ function switchTab(tabId) {
 }
 
 // ================= 1. MATRIX TAB LOGIC ================= //
-DOM.matrixServerSelect.addEventListener('change', () => {
-  state.activeServerFilterId = DOM.matrixServerSelect.value;
-  loadMatrix();
-});
-
-DOM.matrixSearch.addEventListener('input', () => {
-  filterMatrixUI();
-});
-
-DOM.matrixCategoryFilters.addEventListener('click', (e) => {
-  if (e.target.classList.contains('cat-btn')) {
-    DOM.matrixCategoryFilters.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
-    e.target.classList.add('active');
-    filterMatrixUI();
-  }
-});
 
 async function loadMatrix() {
   // Find which guild to display. For simplicity, we display the guild of the first active character we own,
@@ -579,9 +565,6 @@ async function toggleMatrixCell(charId, recipeId, currentStatus) {
 window.toggleMatrixCell = toggleMatrixCell; // Expose to HTML click handler
 
 // ================= 2. WISHLIST TAB LOGIC ================= //
-DOM.wishlistServerSelect.addEventListener('change', () => {
-  loadWishlist();
-});
 
 async function loadWishlist() {
   let guildId = state.activeGuildId;
@@ -786,9 +769,7 @@ async function loadRecipeChecklist(charId) {
   }
 }
 
-DOM.checklistSearchInput.addEventListener('input', () => {
-  renderRecipeChecklistUI();
-});
+
 
 function renderRecipeChecklistUI() {
   const searchQuery = DOM.checklistSearchInput.value.toLowerCase();
@@ -920,131 +901,7 @@ async function createGuild(name, passcode) {
   }
 }
 
-// Delete character
-DOM.deleteCharBtn.addEventListener('click', async () => {
-  if (confirm("Are you sure you want to delete this character permanently? This wipes all recipe progress!")) {
-    try {
-      await apiCall(`/characters/${state.activeCharacterId}`, 'DELETE');
-      showToast("Character deleted.", false);
-      state.activeCharacterId = null;
-      await loadCharacters();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-});
-
-// Create character alt / recipe submission modal controls
-DOM.openCreateCharBtn.addEventListener('click', () => {
-  DOM.createCharModal.classList.remove('hidden');
-});
-
-DOM.openSubmitRecipeBtn.addEventListener('click', () => {
-  DOM.submitRecipeModal.classList.remove('hidden');
-});
-
-document.querySelectorAll('.close-modal-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    DOM.createCharModal.classList.add('hidden');
-    DOM.migrateCharModal.classList.add('hidden');
-    DOM.submitRecipeModal.classList.add('hidden');
-  });
-});
-
-DOM.charNewScenario.addEventListener('change', () => {
-  if (DOM.charNewScenario.value === 'custom') {
-    DOM.customScenarioGroup.classList.remove('hidden');
-  } else {
-    DOM.customScenarioGroup.classList.add('hidden');
-  }
-});
-
-DOM.charJoinGuildCheck.addEventListener('change', () => {
-  DOM.modalGuildJoinFields.classList.toggle('hidden', !DOM.charJoinGuildCheck.checked);
-});
-
-DOM.createCharForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  let scenario = DOM.charNewScenario.value;
-  if (scenario === 'custom') {
-    scenario = DOM.charCustomScenario.value;
-  }
-  
-  const serverCode = DOM.charNewServer.value;
-  const name = DOM.charNewName.value;
-
-  try {
-    // 1. Create Server/Scenario entity
-    const server = await apiCall('/servers', 'POST', {
-      name: serverCode,
-      scenario_name: scenario
-    });
-
-    // 2. Create Character
-    let body = {
-      name,
-      server_id: server.id
-    };
-
-    if (DOM.charJoinGuildCheck.checked) {
-      body.guild_id = parseInt(DOM.charJoinGuildSelect.value, 10);
-      body.join_passcode = DOM.charJoinGuildPasscode.value;
-    }
-
-    await apiCall('/characters', 'POST', body);
-    showToast("Character created successfully!", false);
-    
-    // Reset Form
-    DOM.createCharForm.reset();
-    DOM.createCharModal.classList.add('hidden');
-    DOM.customScenarioGroup.classList.add('hidden');
-    DOM.modalGuildJoinFields.classList.add('hidden');
-
-    await loadMetadata();
-    await loadCharacters();
-  } catch (err) {
-    console.error(err);
-  }
-});
-
-// Migration Season triggers
-DOM.migrateCharBtnTrigger.addEventListener('click', () => {
-  DOM.migrateCharModal.classList.remove('hidden');
-});
-
-DOM.migrateCharForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const scenario = DOM.migrateScenario.value;
-  const serverCode = DOM.migrateServer.value;
-
-  try {
-    // 1. Create target Server
-    const server = await apiCall('/servers', 'POST', {
-      name: serverCode,
-      scenario_name: scenario
-    });
-
-    // 2. Trigger migration
-    await apiCall(`/characters/${state.activeCharacterId}/migrate`, 'POST', {
-      server_id: server.id
-    });
-
-    showToast("Character migrated! Seasonal recipe progress reset.", false);
-    DOM.migrateCharModal.classList.add('hidden');
-    DOM.migrateCharForm.reset();
-    
-    await loadMetadata();
-    await loadCharacters();
-  } catch (err) {
-    console.error(err);
-  }
-});
-
-
 // ================= 4. CATALOG TAB LOGIC ================= //
-DOM.catalogSearch.addEventListener('input', () => filterCatalogUI());
-DOM.catalogCategorySelect.addEventListener('change', () => filterCatalogUI());
 
 async function loadCatalog() {
   try {
@@ -1058,11 +915,20 @@ async function loadCatalog() {
 function filterCatalogUI() {
   const searchQuery = DOM.catalogSearch.value.toLowerCase();
   const category = DOM.catalogCategorySelect.value;
+  const sourceFilter = DOM.catalogSourceSelect.value;
 
   const filtered = state.recipes.filter(r => {
     const matchesSearch = r.item_name.toLowerCase().includes(searchQuery) || (r.formula && r.formula.toLowerCase().includes(searchQuery));
     const matchesCategory = category === 'all' || r.category === category;
-    return matchesSearch && matchesCategory;
+    
+    let matchesSource = true;
+    if (sourceFilter === 'settlement') {
+      matchesSource = r.acquired_by && r.acquired_by.toLowerCase().includes('settlement');
+    } else if (sourceFilter === 'recycling') {
+      matchesSource = r.acquired_by && r.acquired_by.toLowerCase().includes('recycling');
+    }
+    
+    return matchesSearch && matchesCategory && matchesSource;
   });
 
   if (filtered.length === 0) {
@@ -1087,37 +953,7 @@ function filterCatalogUI() {
   lucide.createIcons();
 }
 
-// Submit Recipe Form
-DOM.submitRecipeForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  DOM.submitRecipeError.classList.add('hidden');
-  DOM.submitRecipeSuccess.classList.add('hidden');
 
-  const item_name = DOM.recNewName.value;
-  const formula = DOM.recNewFormula.value;
-  const category = DOM.recNewCategory.value;
-  const acquired_by = DOM.recNewAcquired.value;
-  const submit_to_global = DOM.recSubmitGlobal.checked;
-
-  try {
-    const res = await apiCall('/recipes', 'POST', {
-      item_name,
-      formula,
-      category,
-      acquired_by,
-      submit_to_global
-    });
-
-    showToast(res.message || "Recipe submitted successfully!", false);
-    DOM.submitRecipeForm.reset();
-    DOM.submitRecipeModal.classList.add('hidden');
-    
-    await loadCatalog();
-  } catch (err) {
-    DOM.submitRecipeError.textContent = err.message;
-    DOM.submitRecipeError.classList.remove('hidden');
-  }
-});
 
 
 // ================= 5. ADMIN CONSOLE TAB LOGIC ================= //
@@ -1182,73 +1018,234 @@ async function rejectRecipe(id) {
 }
 window.rejectRecipe = rejectRecipe;
 
-// Execute Scraper Scan
-DOM.runScraperBtn.addEventListener('click', async () => {
-  DOM.runScraperBtn.disabled = true;
-  DOM.runScraperBtn.querySelector('span').textContent = 'Scanning...';
-  
-  const use_mock = DOM.scraperUseMock.checked;
-  try {
-    const res = await apiCall('/admin/scrape', 'POST', { use_mock });
-    showToast(res.message, false);
-    await loadAdminQueue();
-  } catch (err) {
-    console.error(err);
-  } finally {
-    DOM.runScraperBtn.disabled = false;
-    DOM.runScraperBtn.querySelector('span').textContent = 'Execute Scraper Scan';
-  }
-});
+// ================= EVENT LISTENERS INITIALIZATION ================= //
+function initEventListeners() {
+  // Matrix Tab
+  DOM.matrixServerSelect.addEventListener('change', () => {
+    state.activeServerFilterId = DOM.matrixServerSelect.value;
+    loadMatrix();
+  });
 
-// Execute Server Code Harvester
-DOM.runHarvesterBtn.addEventListener('click', async () => {
-  const scenario = DOM.harvesterScenarioSelect.value;
-  const text = DOM.harvesterText.value;
-  
-  if (!text.trim()) {
-    showToast("Please paste some text containing server codes to harvest.", true);
-    return;
-  }
-  
-  DOM.runHarvesterBtn.disabled = true;
-  DOM.runHarvesterBtn.querySelector('span').textContent = 'Extracting...';
-  
-  try {
-    const res = await apiCall('/admin/harvest-servers', 'POST', {
-      scenario_name: scenario,
-      text: text
+  DOM.matrixSearch.addEventListener('input', () => {
+    filterMatrixUI();
+  });
+
+  DOM.matrixCategoryFilters.addEventListener('click', (e) => {
+    if (e.target.classList.contains('cat-btn')) {
+      DOM.matrixCategoryFilters.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      filterMatrixUI();
+    }
+  });
+
+  // Wishlist Tab
+  DOM.wishlistServerSelect.addEventListener('change', () => {
+    loadWishlist();
+  });
+
+  // Characters Tab - Recipe Checklist
+  DOM.checklistSearchInput.addEventListener('input', () => {
+    renderRecipeChecklistUI();
+  });
+
+  // Character deletion
+  DOM.deleteCharBtn.addEventListener('click', async () => {
+    if (confirm("Are you sure you want to delete this character permanently? This wipes all recipe progress!")) {
+      try {
+        await apiCall(`/characters/${state.activeCharacterId}`, 'DELETE');
+        showToast("Character deleted.", false);
+        state.activeCharacterId = null;
+        await loadCharacters();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  });
+
+  // Create character alt / recipe submission modal controls
+  DOM.openCreateCharBtn.addEventListener('click', () => {
+    DOM.createCharModal.classList.remove('hidden');
+  });
+
+  DOM.openSubmitRecipeBtn.addEventListener('click', () => {
+    DOM.submitRecipeModal.classList.remove('hidden');
+  });
+
+  document.querySelectorAll('.close-modal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      DOM.createCharModal.classList.add('hidden');
+      DOM.migrateCharModal.classList.add('hidden');
+      DOM.submitRecipeModal.classList.add('hidden');
     });
-    
-    showToast(res.message, false);
-    DOM.harvesterText.value = ''; // Clear text
-    await loadMetadata(); // Reload dropdown metadata with new servers
-  } catch (err) {
-    console.error(err);
-  } finally {
-    DOM.runHarvesterBtn.disabled = false;
-    DOM.runHarvesterBtn.querySelector('span').textContent = 'Extract & Register Servers';
-  }
-});
+  });
 
-// Reset Scenario Server
-DOM.resetScenarioBtn.addEventListener('click', async () => {
-  const serverId = DOM.adminResetServer.value;
-  if (!serverId) {
-    showToast("Please select a target server to reset.", true);
-    return;
-  }
+  DOM.charNewScenario.addEventListener('change', () => {
+    if (DOM.charNewScenario.value === 'custom') {
+      DOM.customScenarioGroup.classList.remove('hidden');
+    } else {
+      DOM.customScenarioGroup.classList.add('hidden');
+    }
+  });
 
-  const code = prompt("CRITICAL ACTION REQUIRED!\nThis deletes all recipe progress and resets character levels to 1 for all characters on this server!\n\nType the word 'RESET' to confirm:");
-  if (code !== 'RESET') {
-    showToast("Reset canceled: Incorrect confirmation code.", true);
-    return;
-  }
+  DOM.charJoinGuildCheck.addEventListener('change', () => {
+    DOM.modalGuildJoinFields.classList.toggle('hidden', !DOM.charJoinGuildCheck.checked);
+  });
 
-  try {
-    const res = await apiCall('/admin/reset-scenario', 'POST', { server_id: parseInt(serverId, 10) });
-    showToast(res.message, false);
-    await loadMetadata();
-  } catch (err) {
-    console.error(err);
-  }
-});
+  DOM.createCharForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    let scenario = DOM.charNewScenario.value;
+    if (scenario === 'custom') {
+      scenario = DOM.charCustomScenario.value;
+    }
+    const serverCode = DOM.charNewServer.value;
+    const name = DOM.charNewName.value;
+    try {
+      const server = await apiCall('/servers', 'POST', {
+        name: serverCode,
+        scenario_name: scenario
+      });
+      let body = {
+        name,
+        server_id: server.id
+      };
+      if (DOM.charJoinGuildCheck.checked) {
+        body.guild_id = parseInt(DOM.charJoinGuildSelect.value, 10);
+        body.join_passcode = DOM.charJoinGuildPasscode.value;
+      }
+      await apiCall('/characters', 'POST', body);
+      showToast("Character created successfully!", false);
+      DOM.createCharForm.reset();
+      DOM.createCharModal.classList.add('hidden');
+      DOM.customScenarioGroup.classList.add('hidden');
+      DOM.modalGuildJoinFields.classList.add('hidden');
+      await loadMetadata();
+      await loadCharacters();
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // Migration Season triggers
+  DOM.migrateCharBtnTrigger.addEventListener('click', () => {
+    DOM.migrateCharModal.classList.remove('hidden');
+  });
+
+  DOM.migrateCharForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const scenario = DOM.migrateScenario.value;
+    const serverCode = DOM.migrateServer.value;
+    try {
+      const server = await apiCall('/servers', 'POST', {
+        name: serverCode,
+        scenario_name: scenario
+      });
+      await apiCall(`/characters/${state.activeCharacterId}/migrate`, 'POST', {
+        server_id: server.id
+      });
+      showToast("Character migrated! Seasonal recipe progress reset.", false);
+      DOM.migrateCharModal.classList.add('hidden');
+      DOM.migrateCharForm.reset();
+      await loadMetadata();
+      await loadCharacters();
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // Catalog Tab filters
+  DOM.catalogSearch.addEventListener('input', () => filterCatalogUI());
+  DOM.catalogCategorySelect.addEventListener('change', () => filterCatalogUI());
+  DOM.catalogSourceSelect.addEventListener('change', () => filterCatalogUI());
+
+  // Submit Recipe Form
+  DOM.submitRecipeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    DOM.submitRecipeError.classList.add('hidden');
+    DOM.submitRecipeSuccess.classList.add('hidden');
+    const item_name = DOM.recNewName.value;
+    const formula = DOM.recNewFormula.value;
+    const category = DOM.recNewCategory.value;
+    const acquired_by = DOM.recNewAcquired.value;
+    const submit_to_global = DOM.recSubmitGlobal.checked;
+    try {
+      const res = await apiCall('/recipes', 'POST', {
+        item_name,
+        formula,
+        category,
+        acquired_by,
+        submit_to_global
+      });
+      showToast(res.message || "Recipe submitted successfully!", false);
+      DOM.submitRecipeForm.reset();
+      DOM.submitRecipeModal.classList.add('hidden');
+      await loadCatalog();
+    } catch (err) {
+      DOM.submitRecipeError.textContent = err.message;
+      DOM.submitRecipeError.classList.remove('hidden');
+    }
+  });
+
+  // Execute Scraper Scan
+  DOM.runScraperBtn.addEventListener('click', async () => {
+    DOM.runScraperBtn.disabled = true;
+    DOM.runScraperBtn.querySelector('span').textContent = 'Scanning...';
+    const use_mock = DOM.scraperUseMock.checked;
+    try {
+      const res = await apiCall('/admin/scrape', 'POST', { use_mock });
+      showToast(res.message, false);
+      await loadAdminQueue();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      DOM.runScraperBtn.disabled = false;
+      DOM.runScraperBtn.querySelector('span').textContent = 'Execute Scraper Scan';
+    }
+  });
+
+  // Execute Server Code Harvester
+  DOM.runHarvesterBtn.addEventListener('click', async () => {
+    const scenario = DOM.harvesterScenarioSelect.value;
+    const text = DOM.harvesterText.value;
+    if (!text.trim()) {
+      showToast("Please paste some text containing server codes to harvest.", true);
+      return;
+    }
+    DOM.runHarvesterBtn.disabled = true;
+    DOM.runHarvesterBtn.querySelector('span').textContent = 'Extracting...';
+    try {
+      const res = await apiCall('/admin/harvest-servers', 'POST', {
+        scenario_name: scenario,
+        text: text
+      });
+      showToast(res.message, false);
+      DOM.harvesterText.value = '';
+      await loadMetadata();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      DOM.runHarvesterBtn.disabled = false;
+      DOM.runHarvesterBtn.querySelector('span').textContent = 'Extract & Register Servers';
+    }
+  });
+
+  // Reset Scenario Server
+  DOM.resetScenarioBtn.addEventListener('click', async () => {
+    const serverId = DOM.adminResetServer.value;
+    if (!serverId) {
+      showToast("Please select a target server to reset.", true);
+      return;
+    }
+    const code = prompt("CRITICAL ACTION REQUIRED!\nThis deletes all recipe progress and resets character levels to 1 for all characters on this server!\n\nType the word 'RESET' to confirm:");
+    if (code !== 'RESET') {
+      showToast("Reset canceled: Incorrect confirmation code.", true);
+      return;
+    }
+    try {
+      const res = await apiCall('/admin/reset-scenario', 'POST', { server_id: parseInt(serverId, 10) });
+      showToast(res.message, false);
+      await loadMetadata();
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
