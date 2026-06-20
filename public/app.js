@@ -179,17 +179,17 @@ function initAuth() {
     isRegisterMode = !isRegisterMode;
     
     if (isRegisterMode) {
-      DOM.authTitle.textContent = "Initialize Stardust Sync";
-      DOM.authDesc.textContent = "Register a new account to begin tracking.";
-      DOM.authSubmitBtn.querySelector('span').textContent = "Register Node";
-      DOM.authToggleText.textContent = "Already verified?";
-      DOM.authToggleLink.textContent = "Authorize Account";
+      DOM.authTitle.textContent = "Create Player Account";
+      DOM.authDesc.textContent = "Register a new player profile to begin tracking your alts.";
+      DOM.authSubmitBtn.querySelector('span').textContent = "Create Account";
+      DOM.authToggleText.textContent = "Already have an account?";
+      DOM.authToggleLink.textContent = "Sign In";
     } else {
-      DOM.authTitle.textContent = "System Authorization";
-      DOM.authDesc.textContent = "Connect to the guild stardust network to synchronize recipe data.";
-      DOM.authSubmitBtn.querySelector('span').textContent = "Authorize";
-      DOM.authToggleText.textContent = "New to the network?";
-      DOM.authToggleLink.textContent = "Initialize Account";
+      DOM.authTitle.textContent = "Guild Crafting Portal";
+      DOM.authDesc.textContent = "Log in or register your account to sync recipes with your guild.";
+      DOM.authSubmitBtn.querySelector('span').textContent = "Sign In";
+      DOM.authToggleText.textContent = "First time here?";
+      DOM.authToggleLink.textContent = "Create Player Account";
     }
   });
 

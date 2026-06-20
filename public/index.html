@@ -35,14 +35,14 @@
 
     <!-- Login / Register Section -->
     <div id="auth-container" class="glass-panel auth-card">
-      <h2 id="auth-title">System Authorization</h2>
-      <p class="auth-desc">Connect to the guild stardust network to synchronize recipe data.</p>
+      <h2 id="auth-title">Guild Crafting Portal</h2>
+      <p class="auth-desc">Log in or register your account to sync recipes with your guild.</p>
       
       <div class="alert-box error-alert hidden" id="auth-error"></div>
       
       <form id="auth-form">
         <div class="form-group">
-          <label for="auth-username"><i data-lucide="user"></i> Username</label>
+          <label for="auth-username"><i data-lucide="user"></i> Player Username</label>
           <input type="text" id="auth-username" required placeholder="Enter username...">
         </div>
         <div class="form-group">
@@ -51,13 +51,13 @@
         </div>
         
         <button type="submit" class="btn primary-btn btn-glow" id="auth-submit-btn">
-          <span>Authorize</span> <i data-lucide="shield-check"></i>
+          <span>Sign In</span> <i data-lucide="log-in"></i>
         </button>
       </form>
       
       <div class="auth-toggle">
-        <span id="auth-toggle-text">New to the network?</span>
-        <a href="#" id="auth-toggle-link">Initialize Account</a>
+        <span id="auth-toggle-text">First time here?</span>
+        <a href="#" id="auth-toggle-link">Create Player Account</a>
       </div>
     </div>
 
