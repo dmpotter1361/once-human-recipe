@@ -23,6 +23,7 @@ const SPECIALIZATIONS_LIST = [
 const state = {
   token: localStorage.getItem('stardust_token') || null,
   user: JSON.parse(localStorage.getItem('stardust_user')) || null,
+  isGuest: localStorage.getItem('stardust_guest') === 'true',
   activeTab: 'matrix-tab',
   
   // Data lists
@@ -51,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initEventListeners();
   
-  if (state.token) {
+  if (state.token || state.isGuest) {
     showDashboard();
   } else {
     showLogin();
@@ -76,6 +77,7 @@ function initDOM() {
     authToggleText: document.getElementById('auth-toggle-text'),
     authToggleLink: document.getElementById('auth-toggle-link'),
     authHeaderActions: document.getElementById('auth-header-actions'),
+    guestLoginBtn: document.getElementById('guest-login-btn'),
     
     // Tab panes
     tabPanes: document.querySelectorAll('.tab-pane'),
@@ -300,6 +302,16 @@ function initAuth() {
       DOM.authError.classList.remove('hidden');
     }
   });
+
+  if (DOM.guestLoginBtn) {
+    DOM.guestLoginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.isGuest = true;
+      localStorage.setItem('stardust_guest', 'true');
+      state.user = { username: 'Guest', role: 'guest' };
+      showDashboard();
+    });
+  }
 }
 
 function saveAuthSession(data) {
@@ -315,15 +327,21 @@ function initLogout() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      try {
-        await apiCall('/auth/logout', 'POST');
-      } catch (err) {
-        // Continue logout even if server call fails
+      if (state.isGuest) {
+        state.isGuest = false;
+        state.user = null;
+        localStorage.removeItem('stardust_guest');
+      } else {
+        try {
+          await apiCall('/auth/logout', 'POST');
+        } catch (err) {
+          // Continue logout even if server call fails
+        }
+        state.token = null;
+        state.user = null;
+        localStorage.removeItem('stardust_token');
+        localStorage.removeItem('stardust_user');
       }
-      state.token = null;
-      state.user = null;
-      localStorage.removeItem('stardust_token');
-      localStorage.removeItem('stardust_user');
       showLogin();
     });
   }
@@ -339,28 +357,49 @@ async function showDashboard() {
   DOM.authContainer.classList.add('hidden');
   DOM.mainDashboard.classList.remove('hidden');
   
-  // Render user header
-  DOM.authHeaderActions.innerHTML = `
-    <div class="user-profile-badge">
-      <span class="username-tag"><i data-lucide="user"></i> ${state.user.username}</span>
-      <span class="badge ${state.user.role === 'admin' ? 'primary' : ''}">${state.user.role}</span>
-      <button class="btn btn-sm danger-btn" id="logout-btn"><i data-lucide="log-out"></i> Logout</button>
-    </div>
-  `;
-  
-  if (state.user.role === 'admin') {
-    DOM.adminTabBtn.classList.remove('hidden');
-  } else {
+  if (state.isGuest) {
+    DOM.authHeaderActions.innerHTML = `
+      <div class="user-profile-badge">
+        <span class="username-tag"><i data-lucide="user"></i> Guest Mode</span>
+        <button class="btn btn-sm danger-btn" id="logout-btn"><i data-lucide="log-out"></i> Exit Guest</button>
+      </div>
+    `;
     DOM.adminTabBtn.classList.add('hidden');
+    document.querySelector('[data-tab="matrix-tab"]').classList.add('hidden');
+    document.querySelector('[data-tab="wishlist-tab"]').classList.add('hidden');
+    document.querySelector('[data-tab="characters-tab"]').classList.add('hidden');
+    state.activeTab = 'recipes-tab';
+  } else {
+    DOM.authHeaderActions.innerHTML = `
+      <div class="user-profile-badge">
+        <span class="username-tag"><i data-lucide="user"></i> ${state.user.username}</span>
+        <span class="badge ${state.user.role === 'admin' ? 'primary' : ''}">${state.user.role}</span>
+        <button class="btn btn-sm danger-btn" id="logout-btn"><i data-lucide="log-out"></i> Logout</button>
+      </div>
+    `;
+    
+    if (state.user.role === 'admin') {
+      DOM.adminTabBtn.classList.remove('hidden');
+    } else {
+      DOM.adminTabBtn.classList.add('hidden');
+    }
+    
+    document.querySelector('[data-tab="matrix-tab"]').classList.remove('hidden');
+    document.querySelector('[data-tab="wishlist-tab"]').classList.remove('hidden');
+    document.querySelector('[data-tab="characters-tab"]').classList.remove('hidden');
   }
   
   initLogout();
   lucide.createIcons();
   
-  // Fetch initial data
-  await loadMetadata();
-  await loadCharacters();
-  switchTab(state.activeTab);
+  if (state.isGuest) {
+    await loadCatalog();
+    switchTab('recipes-tab');
+  } else {
+    await loadMetadata();
+    await loadCharacters();
+    switchTab(state.activeTab);
+  }
 }
 
 // ================= METADATA LOADING (SERVERS/GUILDS) ================= //
@@ -1464,27 +1503,77 @@ function filterCatalogUI() {
     return matchesSearch && matchesCategory && matchesSource;
   });
 
+  let html = '';
+  
+  if (state.isGuest) {
+    const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+    const learnedCount = Object.values(guestChecklist).filter(v => v === 'learned').length;
+    const learningCount = Object.values(guestChecklist).filter(v => v === 'learning').length;
+    
+    html += `
+      <div class="glass-panel pane-section" style="grid-column: 1 / -1; margin-bottom: 20px; padding: 15px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-light);"><i data-lucide="book-open" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Guest Recipe Ledger</h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--text-muted);">Tracking locally in browser. No account required.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+          <div style="font-size: 0.88rem; color: var(--text-light);">
+            <span style="margin-right: 15px;">Learned: <strong style="color: var(--status-learned-glow);">${learnedCount}</strong></span>
+            <span>Learning: <strong style="color: var(--status-learning-glow);">${learningCount}</strong></span>
+          </div>
+          <button class="btn btn-sm danger-btn" onclick="resetGuestLedger()"><i data-lucide="rotate-ccw"></i> Reset Ledger</button>
+        </div>
+      </div>
+    `;
+  }
+
   if (filtered.length === 0) {
-    DOM.globalCatalogList.innerHTML = '<p class="empty-state">No recipes found matching query.</p>';
+    DOM.globalCatalogList.innerHTML = html + '<p class="empty-state">No recipes found matching query.</p>';
     return;
   }
 
-  let html = '';
   for (const r of filtered) {
+    let isLearned = false;
+    let isLearning = false;
+    
+    if (state.isGuest) {
+      const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+      const status = guestChecklist[r.id];
+      isLearned = status === 'learned';
+      isLearning = status === 'learning';
+    }
+
     html += `
-      <div class="catalog-item glass-panel">
+      <div class="catalog-item glass-panel ${isLearned ? 'learned-card' : ''} ${isLearning ? 'learning-card' : ''}">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
           <h4 style="margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${r.item_name}</h4>
-          ${r.formula ? `
-            <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
-              <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
-            </button>
-          ` : ''}
+          <div style="display: flex; gap: 4px;">
+            ${r.formula ? `
+              <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
+                <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
+              </button>
+            ` : ''}
+          </div>
         </div>
         <p class="formula" style="margin-top: 8px;"><strong>Formula:</strong> ${r.formula || 'No recipe ingredients recorded'}</p>
-        <div class="meta-row" style="margin-top: 10px;">
-          <span class="badge primary">${r.category}</span>
-          ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+        <div class="meta-row" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 4px;">
+            <span class="badge primary">${r.category}</span>
+            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+          </div>
+          
+          ${state.isGuest ? `
+            <div class="checklist-actions" style="margin-top: 0; padding: 0; display: flex; gap: 4px;">
+              <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
+                onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
+                <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
+              </button>
+              <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
+                onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
+                <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
+              </button>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -2147,17 +2236,27 @@ function calculateShoppingList() {
       const recipe = state.recipes.find(r => r.item_name === name);
       let crafterHelp = '';
       if (recipe) {
-        const knownCrafters = [];
-        state.matrixCharacters.forEach(c => {
-          const status = (state.matrixState[c.id] && state.matrixState[c.id][recipe.id]) || null;
+        if (state.isGuest) {
+          const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+          const status = guestChecklist[recipe.id];
           if (status === 'learned') {
-            knownCrafters.push(c.name);
+            crafterHelp = `<span style="font-size: 0.7rem; color: var(--status-learned-glow); display: block;">Known by: You</span>`;
+          } else {
+            crafterHelp = `<span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Not learned yet</span>`;
           }
-        });
-        if (knownCrafters.length > 0) {
-          crafterHelp = `<span style="font-size: 0.7rem; color: var(--status-learned-glow); display: block;">Known by: ${knownCrafters.join(', ')}</span>`;
         } else {
-          crafterHelp = `<span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Nobody in guild knows this</span>`;
+          const knownCrafters = [];
+          state.matrixCharacters.forEach(c => {
+            const status = (state.matrixState[c.id] && state.matrixState[c.id][recipe.id]) || null;
+            if (status === 'learned') {
+              knownCrafters.push(c.name);
+            }
+          });
+          if (knownCrafters.length > 0) {
+            crafterHelp = `<span style="font-size: 0.7rem; color: var(--status-learned-glow); display: block;">Known by: ${knownCrafters.join(', ')}</span>`;
+          } else {
+            crafterHelp = `<span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Nobody in guild knows this</span>`;
+          }
         }
       }
 
@@ -2209,3 +2308,30 @@ window.addRecipeToCalculator = addRecipeToCalculator;
 window.adjustQueueQty = adjustQueueQty;
 window.removeFromQueue = removeFromQueue;
 window.copyCoordsToClipboard = copyCoordsToClipboard;
+
+function updateGuestRecipeStatus(recipeId, targetStatus) {
+  const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+  const currentStatus = guestChecklist[recipeId];
+  
+  const nextStatus = currentStatus === targetStatus ? null : targetStatus;
+  
+  if (nextStatus) {
+    guestChecklist[recipeId] = nextStatus;
+  } else {
+    delete guestChecklist[recipeId];
+  }
+  
+  localStorage.setItem('once_human_guest_checklist', JSON.stringify(guestChecklist));
+  showToast("Ledger updated!", false);
+  filterCatalogUI();
+}
+window.updateGuestRecipeStatus = updateGuestRecipeStatus;
+
+function resetGuestLedger() {
+  if (confirm("Are you sure you want to completely reset your local tracking ledger? This will clear all checked recipes!")) {
+    localStorage.removeItem('once_human_guest_checklist');
+    showToast("Ledger reset successfully.", false);
+    filterCatalogUI();
+  }
+}
+window.resetGuestLedger = resetGuestLedger;

@@ -590,9 +590,33 @@ app.get('/api/guilds/:id/specializations', authenticate, (req, res) => {
 /* ================= RECIPE STATE ROUTES ================= */
 
 // List recipes (optionally returning status for a specific character)
-app.get('/api/recipes', authenticate, (req, res) => {
+app.get('/api/recipes', (req, res) => {
   const characterId = req.query.character_id;
   try {
+    if (characterId) {
+      const token = req.headers['x-auth-token'];
+      if (!token) {
+        return res.status(401).json({ error: 'Authentication token required' });
+      }
+
+      const session = db.prepare(`
+        SELECT s.token, u.id, u.username, u.role 
+        FROM sessions s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE s.token = ?
+      `).get(token);
+
+      if (!session) {
+        return res.status(401).json({ error: 'Invalid or expired session' });
+      }
+
+      req.user = {
+        id: session.id,
+        username: session.username,
+        role: session.role
+      };
+    }
+
     let recipes;
     if (characterId) {
       // Return recipes with a status column for the character

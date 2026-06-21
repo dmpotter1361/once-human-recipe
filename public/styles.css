@@ -1192,3 +1192,16 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* Guest Mode Card Highlights */
+.catalog-item.learned-card {
+  border-color: rgba(0, 240, 255, 0.3) !important;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.03) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.05);
+}
+
+.catalog-item.learning-card {
+  border-color: rgba(255, 0, 128, 0.3) !important;
+  background: linear-gradient(135deg, rgba(255, 0, 128, 0.03) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  box-shadow: 0 0 8px rgba(255, 0, 128, 0.05);
+}
