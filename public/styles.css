@@ -1259,3 +1259,34 @@ input[type="checkbox"] {
   box-shadow: inset 3px 0 0 var(--status-learning);
 }
 
+/* ================= FOOTER & VERSIONING ================= */
+.app-footer {
+  margin-top: auto;
+  padding: 30px 0 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.app-footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: var(--transition-smooth);
+}
+
+.app-footer a:hover {
+  color: var(--primary-cyan);
+}
+
+.footer-divider {
+  opacity: 0.2;
+}
+
+

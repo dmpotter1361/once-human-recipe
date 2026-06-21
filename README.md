@@ -74,20 +74,28 @@ The frontend uses Vanilla HTML5/CSS3 styled with translucent glassmorphic compon
 
 ---
 
-## Continuing development with Antigravity
+## Continuing Development with Agentic IDEs & AI Assistants
 
-This project was built with AI assistance and is set up so you can keep going the same way. To pick up where it left off on your own machine:
+This application is built as a self-contained server-side Node.js web service. Because it uses zero-compilation SQLite (`node:sqlite`) and standard Express, it is extremely friendly to clone, run, and modify using **Agentic IDEs** (such as **Cursor**, **Windsurf**, **VS Code Copilot**, or **Gemini / Antigravity**).
 
-1. **Get the code onto your PC**
+To set up a local copy and run it as a web service on your own machine:
+
+1. **Clone the Repository**
+   Clone a copy of the repository to your local drive:
    ```bash
    git clone https://github.com/dmpotter1361/once-human-recipe.git
    cd once-human-recipe
    ```
 
-2. **Start your developer agent** in this workspace.
+2. **Open in your Agentic IDE / Workspace**
+   Open the root directory in your favorite AI-integrated editor, or launch your workspace coding agent inside the directory.
 
-3. **Point Antigravity at the project and ask for what you want.** A good first prompt:
-   > Read the README, `server.js`, and `public/app.js` to understand the layout. I'd like to &lt;your request&gt;.
+3. **Install & Run Locally**
+   Follow the [Option B: Local Development Setup](#option-b-local-development-setup) instructions to install dependencies and spin up the local web service.
+
+4. **Leverage your AI Developer Agent**
+   Since the codebase has zero complex binary or network compilation requirements, you can prompt your IDE's agent to write features, check logic, or run local tests. A great starting prompt:
+   > "Read the README, `db.js`, `server.js`, and `public/app.js` to understand the architecture. I'd like to [insert your request here]."
 
 ### Helpful map for a new contributor (human or AI)
 
