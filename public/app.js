@@ -587,9 +587,11 @@ function filterMatrixUI() {
             ${activeLearning.map(name => `<span class="mobile-status-tag learning"><i data-lucide="target"></i> ${name}</span>`).join('')}
             ${activeLearned.length === 0 && activeLearning.length === 0 ? '<span style="color: var(--text-muted); font-size: 0.8rem;">Not learned by anyone in active instances.</span>' : ''}
           </div>
+          </div>
         </div>
       </div>
     `;
+  }
   DOM.mobileMatrixView.innerHTML = mobileHtml;
   
   lucide.createIcons();
