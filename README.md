@@ -76,7 +76,7 @@ The frontend uses Vanilla HTML5/CSS3 styled with translucent glassmorphic compon
 
 ## Continuing Development with Agentic IDEs & AI Assistants
 
-This application is built as a self-contained server-side Node.js web service. Because it uses zero-compilation SQLite (`node:sqlite`) and standard Express, it is extremely friendly to clone, run, and modify using **Agentic IDEs** (such as **Cursor**, **Windsurf**, **VS Code Copilot**, or **Gemini / Antigravity**).
+This application is built as a self-contained server-side Node.js web service. Because it uses zero-compilation SQLite (`node:sqlite`) and standard Express, it is extremely friendly to clone, run, and modify using **Agentic IDEs & AI Assistants** (such as **Cursor**, **Windsurf**, **VS Code Copilot**, **Claude**, or **Gemini / Antigravity**).
 
 To set up a local copy and run it as a web service on your own machine:
 
