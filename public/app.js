@@ -115,7 +115,12 @@ function initDOM() {
     charNewScenario: document.getElementById('char-new-scenario'),
     customScenarioGroup: document.getElementById('custom-scenario-group'),
     charCustomScenario: document.getElementById('char-custom-scenario'),
-    charNewServer: document.getElementById('char-new-server'),
+    charServerSelectGroup: document.getElementById('char-server-select-group'),
+    charServerSearch: document.getElementById('char-server-search'),
+    charNewServerSelect: document.getElementById('char-new-server-select'),
+    charServerManualGroup: document.getElementById('char-server-manual-group'),
+    charNewServerManual: document.getElementById('char-new-server-manual'),
+    charServerManualCheck: document.getElementById('char-server-manual-check'),
     charJoinGuildCheck: document.getElementById('char-join-guild-check'),
     modalGuildJoinFields: document.getElementById('modal-guild-join-fields'),
     charJoinGuildSelect: document.getElementById('char-join-guild-select'),
@@ -139,7 +144,12 @@ function initDOM() {
     migrateCharModal: document.getElementById('migrate-char-modal'),
     migrateCharForm: document.getElementById('migrate-char-form'),
     migrateScenario: document.getElementById('migrate-scenario'),
-    migrateServer: document.getElementById('migrate-server'),
+    migrateServerSelectGroup: document.getElementById('migrate-server-select-group'),
+    migrateServerSearch: document.getElementById('migrate-server-search'),
+    migrateServerSelect: document.getElementById('migrate-server-select'),
+    migrateServerManualGroup: document.getElementById('migrate-server-manual-group'),
+    migrateServerManual: document.getElementById('migrate-server-manual'),
+    migrateServerManualCheck: document.getElementById('migrate-server-manual-check'),
     
     // Catalog Tab
     catalogSearch: document.getElementById('catalog-search'),
@@ -408,6 +418,106 @@ function populateServerDropdowns() {
   // Populate Guild join select
   for (const g of state.guilds) {
     DOM.charJoinGuildSelect.add(new Option(g.name, g.id));
+  }
+
+  // Populate searchable dropdowns
+  populateSearchableServerDropdown(DOM.charNewServerSelect, DOM.charNewScenario.value, DOM.charServerSearch.value);
+  populateSearchableServerDropdown(DOM.migrateServerSelect, DOM.migrateScenario.value, DOM.migrateServerSearch.value);
+}
+
+function matchServer(server, query) {
+  if (!query) return true;
+  const normalizedQuery = query.toLowerCase().trim();
+  const normalizedName = server.name.toLowerCase();
+  const normalizedScenario = server.scenario_name.toLowerCase();
+  
+  // 1. Direct substring match
+  if (normalizedName.includes(normalizedQuery) || normalizedScenario.includes(normalizedQuery)) {
+    return true;
+  }
+  
+  // 2. Numeric match (e.g. query "13" should match "PVE-01-00013")
+  const queryNumbers = normalizedQuery.match(/\d+/g);
+  if (queryNumbers) {
+    const serverNumbers = normalizedName.match(/\d+/g);
+    if (serverNumbers) {
+      const normalizedServerNums = serverNumbers.map(n => parseInt(n, 10).toString());
+      const normalizedQueryNums = queryNumbers.map(n => parseInt(n, 10).toString());
+      
+      const allMatch = normalizedQueryNums.every(qn => normalizedServerNums.includes(qn));
+      if (allMatch) return true;
+      
+      const partialMatch = normalizedQueryNums.every(qn => 
+        normalizedServerNums.some(sn => sn.includes(qn))
+      );
+      if (partialMatch) return true;
+    }
+  }
+  
+  return false;
+}
+
+function populateSearchableServerDropdown(selectEl, selectedScenario, filterQuery) {
+  const currentValue = selectEl.value;
+  selectEl.innerHTML = '<option value="">Select a server...</option>';
+  
+  const filtered = state.servers.filter(s => {
+    if (selectedScenario && selectedScenario !== 'custom') {
+      if (s.scenario_name !== selectedScenario) return false;
+    }
+    return matchServer(s, filterQuery);
+  });
+  
+  const groups = {};
+  for (const s of filtered) {
+    if (!groups[s.scenario_name]) {
+      groups[s.scenario_name] = [];
+    }
+    groups[s.scenario_name].push(s);
+  }
+  
+  for (const scenario in groups) {
+    const optGroup = document.createElement('optgroup');
+    optGroup.label = scenario;
+    for (const s of groups[scenario]) {
+      const option = new Option(`${s.name} (${scenario})`, s.id);
+      optGroup.appendChild(option);
+    }
+    selectEl.appendChild(optGroup);
+  }
+  
+  if (currentValue) {
+    selectEl.value = currentValue;
+  }
+}
+
+function toggleCharServerManual() {
+  const isManual = DOM.charServerManualCheck.checked;
+  DOM.charServerSelectGroup.classList.toggle('hidden', isManual);
+  DOM.charServerManualGroup.classList.toggle('hidden', !isManual);
+  
+  if (isManual) {
+    DOM.charNewServerSelect.removeAttribute('required');
+    DOM.charNewServerManual.setAttribute('required', '');
+  } else {
+    if (!DOM.charSoloCheck.checked) {
+      DOM.charNewServerSelect.setAttribute('required', '');
+    }
+    DOM.charNewServerManual.removeAttribute('required');
+  }
+}
+
+function toggleMigrateServerManual() {
+  const isManual = DOM.migrateServerManualCheck.checked;
+  DOM.migrateServerSelectGroup.classList.toggle('hidden', isManual);
+  DOM.migrateServerManualGroup.classList.toggle('hidden', !isManual);
+  
+  if (isManual) {
+    DOM.migrateServerSelect.removeAttribute('required');
+    DOM.migrateServerManual.setAttribute('required', '');
+  } else {
+    DOM.migrateServerSelect.setAttribute('required', '');
+    DOM.migrateServerManual.removeAttribute('required');
   }
 }
 
@@ -1522,6 +1632,10 @@ function initEventListeners() {
 
   // Create character alt / recipe submission modal controls
   DOM.openCreateCharBtn.addEventListener('click', () => {
+    DOM.charServerSearch.value = '';
+    DOM.charServerManualCheck.checked = false;
+    toggleCharServerManual();
+    populateSearchableServerDropdown(DOM.charNewServerSelect, DOM.charNewScenario.value, '');
     DOM.createCharModal.classList.remove('hidden');
   });
 
@@ -1540,19 +1654,49 @@ function initEventListeners() {
     DOM.charOnlineFields.classList.toggle('hidden', isSolo);
     if (isSolo) {
       DOM.charNewScenario.removeAttribute('required');
-      DOM.charNewServer.removeAttribute('required');
+      DOM.charNewServerSelect.removeAttribute('required');
+      DOM.charNewServerManual.removeAttribute('required');
     } else {
       DOM.charNewScenario.setAttribute('required', '');
-      DOM.charNewServer.setAttribute('required', '');
+      if (DOM.charServerManualCheck.checked) {
+        DOM.charNewServerManual.setAttribute('required', '');
+        DOM.charNewServerSelect.removeAttribute('required');
+      } else {
+        DOM.charNewServerSelect.setAttribute('required', '');
+        DOM.charNewServerManual.removeAttribute('required');
+      }
     }
   });
 
   DOM.charNewScenario.addEventListener('change', () => {
     if (DOM.charNewScenario.value === 'custom') {
       DOM.customScenarioGroup.classList.remove('hidden');
+      DOM.charServerManualCheck.checked = true;
+      toggleCharServerManual();
     } else {
       DOM.customScenarioGroup.classList.add('hidden');
+      populateSearchableServerDropdown(DOM.charNewServerSelect, DOM.charNewScenario.value, DOM.charServerSearch.value);
     }
+  });
+
+  DOM.charServerSearch.addEventListener('input', () => {
+    populateSearchableServerDropdown(DOM.charNewServerSelect, DOM.charNewScenario.value, DOM.charServerSearch.value);
+  });
+
+  DOM.charNewServerSelect.addEventListener('change', () => {
+    const selectedId = DOM.charNewServerSelect.value;
+    if (selectedId) {
+      const server = state.servers.find(s => s.id == selectedId);
+      if (server && DOM.charNewScenario.value !== server.scenario_name && DOM.charNewScenario.value !== 'custom') {
+        DOM.charNewScenario.value = server.scenario_name;
+        populateSearchableServerDropdown(DOM.charNewServerSelect, server.scenario_name, DOM.charServerSearch.value);
+        DOM.charNewServerSelect.value = selectedId;
+      }
+    }
+  });
+
+  DOM.charServerManualCheck.addEventListener('change', () => {
+    toggleCharServerManual();
   });
 
   DOM.charJoinGuildCheck.addEventListener('change', () => {
@@ -1566,16 +1710,35 @@ function initEventListeners() {
     if (!isSolo && scenario === 'custom') {
       scenario = DOM.charCustomScenario.value;
     }
-    const serverCode = isSolo ? "Solo Tracking" : DOM.charNewServer.value;
+    
+    let serverId;
     const name = DOM.charNewName.value;
+    
     try {
-      const server = await apiCall('/servers', 'POST', {
-        name: serverCode,
-        scenario_name: scenario
-      });
+      if (isSolo) {
+        const server = await apiCall('/servers', 'POST', {
+          name: "Solo Tracking",
+          scenario_name: "Solo"
+        });
+        serverId = server.id;
+      } else if (DOM.charServerManualCheck.checked) {
+        const serverCode = DOM.charNewServerManual.value.trim();
+        const server = await apiCall('/servers', 'POST', {
+          name: serverCode,
+          scenario_name: scenario
+        });
+        serverId = server.id;
+      } else {
+        serverId = parseInt(DOM.charNewServerSelect.value, 10);
+        if (!serverId) {
+          showToast("Please select or enter a server.", true);
+          return;
+        }
+      }
+      
       let body = {
         name,
-        server_id: server.id
+        server_id: serverId
       };
       if (!isSolo && DOM.charJoinGuildCheck.checked) {
         body.guild_id = parseInt(DOM.charJoinGuildSelect.value, 10);
@@ -1588,7 +1751,9 @@ function initEventListeners() {
       DOM.createCharForm.reset();
       DOM.charOnlineFields.classList.remove('hidden');
       DOM.charNewScenario.setAttribute('required', '');
-      DOM.charNewServer.setAttribute('required', '');
+      
+      DOM.charServerManualCheck.checked = false;
+      toggleCharServerManual();
       
       DOM.createCharModal.classList.add('hidden');
       DOM.customScenarioGroup.classList.add('hidden');
@@ -1602,20 +1767,60 @@ function initEventListeners() {
 
   // Migration Season triggers
   DOM.migrateCharBtnTrigger.addEventListener('click', () => {
+    DOM.migrateServerSearch.value = '';
+    DOM.migrateServerManualCheck.checked = false;
+    toggleMigrateServerManual();
+    populateSearchableServerDropdown(DOM.migrateServerSelect, DOM.migrateScenario.value, '');
     DOM.migrateCharModal.classList.remove('hidden');
+  });
+
+  DOM.migrateScenario.addEventListener('change', () => {
+    populateSearchableServerDropdown(DOM.migrateServerSelect, DOM.migrateScenario.value, DOM.migrateServerSearch.value);
+  });
+
+  DOM.migrateServerSearch.addEventListener('input', () => {
+    populateSearchableServerDropdown(DOM.migrateServerSelect, DOM.migrateScenario.value, DOM.migrateServerSearch.value);
+  });
+
+  DOM.migrateServerSelect.addEventListener('change', () => {
+    const selectedId = DOM.migrateServerSelect.value;
+    if (selectedId) {
+      const server = state.servers.find(s => s.id == selectedId);
+      if (server && DOM.migrateScenario.value !== server.scenario_name) {
+        DOM.migrateScenario.value = server.scenario_name;
+        populateSearchableServerDropdown(DOM.migrateServerSelect, server.scenario_name, DOM.migrateServerSearch.value);
+        DOM.migrateServerSelect.value = selectedId;
+      }
+    }
+  });
+
+  DOM.migrateServerManualCheck.addEventListener('change', () => {
+    toggleMigrateServerManual();
   });
 
   DOM.migrateCharForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const scenario = DOM.migrateScenario.value;
-    const serverCode = DOM.migrateServer.value;
+    
+    let serverId;
     try {
-      const server = await apiCall('/servers', 'POST', {
-        name: serverCode,
-        scenario_name: scenario
-      });
+      if (DOM.migrateServerManualCheck.checked) {
+        const serverCode = DOM.migrateServerManual.value.trim();
+        const server = await apiCall('/servers', 'POST', {
+          name: serverCode,
+          scenario_name: scenario
+        });
+        serverId = server.id;
+      } else {
+        serverId = parseInt(DOM.migrateServerSelect.value, 10);
+        if (!serverId) {
+          showToast("Please select or enter a server.", true);
+          return;
+        }
+      }
+      
       await apiCall(`/characters/${state.activeCharacterId}/migrate`, 'POST', {
-        server_id: server.id
+        server_id: serverId
       });
       showToast("Character migrated! Seasonal recipe progress reset.", false);
       DOM.migrateCharModal.classList.add('hidden');

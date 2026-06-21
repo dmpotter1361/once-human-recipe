@@ -311,9 +311,22 @@
                       <input type="text" id="char-custom-scenario" placeholder="e.g. The Way of Winter II">
                     </div>
                   </div>
-                  <div class="form-group">
-                    <label for="char-new-server">Server Code / Number</label>
-                    <input type="text" id="char-new-server" required placeholder="e.g. X0001, PVE-01-0023">
+                  <div class="form-group" id="char-server-select-group">
+                    <label for="char-new-server-select"><i data-lucide="server"></i> Server Select</label>
+                    <div class="searchable-select-container">
+                      <input type="text" id="char-server-search" placeholder="Type to filter servers... (e.g. 13)">
+                      <select id="char-new-server-select" class="glass-select" required>
+                        <option value="">Select a server...</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group hidden" id="char-server-manual-group">
+                    <label for="char-new-server-manual"><i data-lucide="edit-3"></i> Manual Server Code</label>
+                    <input type="text" id="char-new-server-manual" placeholder="e.g. PVE-01-0023">
+                  </div>
+                  <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                    <input type="checkbox" id="char-server-manual-check">
+                    <label for="char-server-manual-check">Type Server Manually (if not in list)</label>
                   </div>
                   <div class="form-group checkbox-group">
                     <input type="checkbox" id="char-join-guild-check">
@@ -356,9 +369,22 @@
                     <option value="Evolution's Call">Evolution's Call</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label for="migrate-server">New Server Code / Number</label>
-                  <input type="text" id="migrate-server" required placeholder="e.g. X0002, PVE-01-0005">
+                <div class="form-group" id="migrate-server-select-group">
+                  <label for="migrate-server-select"><i data-lucide="server"></i> New Server Select</label>
+                  <div class="searchable-select-container">
+                    <input type="text" id="migrate-server-search" placeholder="Type to filter servers... (e.g. 5)">
+                    <select id="migrate-server-select" class="glass-select" required>
+                      <option value="">Select a server...</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group hidden" id="migrate-server-manual-group">
+                  <label for="migrate-server-manual"><i data-lucide="edit-3"></i> Manual New Server Code</label>
+                  <input type="text" id="migrate-server-manual" placeholder="e.g. PVE-01-0005">
+                </div>
+                <div class="form-group checkbox-group" style="margin-bottom: 15px;">
+                  <input type="checkbox" id="migrate-server-manual-check">
+                  <label for="migrate-server-manual-check">Type Server Manually (if not in list)</label>
                 </div>
                 <button type="submit" class="btn primary-btn danger-btn">Reset & Migrate Character</button>
               </form>

@@ -266,6 +266,23 @@ textarea:focus,
   box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
 }
 
+.searchable-select-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.searchable-select-container input[type="text"] {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.searchable-select-container select {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
 .checkbox-group {
   flex-direction: row;
   align-items: center;
