@@ -42,7 +42,8 @@ const state = {
   matrixRecipes: [],
   matrixState: {},
   activeCoordinatorView: 'recipe', // 'recipe' or 'spec'
-  calcQueue: [] // [{ recipeId, qty }]
+  calcQueue: [], // [{ recipeId, qty }]
+  catalogLayout: localStorage.getItem('catalog_layout') || 'grid'
 };
 
 // ================= INITIALIZATION ================= //
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   initTabs();
   initEventListeners();
+  updateLayoutButtons();
   
   if (state.token || state.isGuest) {
     showDashboard();
@@ -60,6 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
   
   lucide.createIcons();
 });
+
+function updateLayoutButtons() {
+  if (state.catalogLayout === 'table') {
+    DOM.layoutGridBtn.classList.remove('active');
+    DOM.layoutTableBtn.classList.add('active');
+  } else {
+    DOM.layoutGridBtn.classList.add('active');
+    DOM.layoutTableBtn.classList.remove('active');
+  }
+}
 
 // ================= DOM ELEMENT REFERENCES ================= //
 let DOM = {};
@@ -158,6 +170,8 @@ function initDOM() {
     catalogCategorySelect: document.getElementById('catalog-category-select'),
     catalogSourceSelect: document.getElementById('catalog-source-select'),
     catalogSortSelect: document.getElementById('catalog-sort-select'),
+    layoutGridBtn: document.getElementById('layout-grid-btn'),
+    layoutTableBtn: document.getElementById('layout-table-btn'),
     globalCatalogList: document.getElementById('global-catalog-list'),
     submitRecipeForm: document.getElementById('submit-recipe-form'),
     recNewName: document.getElementById('rec-new-name'),
@@ -1527,58 +1541,133 @@ function filterCatalogUI() {
     `;
   }
 
+  if (state.catalogLayout === 'table') {
+    DOM.globalCatalogList.classList.remove('grid-list');
+  } else {
+    DOM.globalCatalogList.classList.add('grid-list');
+  }
+
   if (filtered.length === 0) {
     DOM.globalCatalogList.innerHTML = html + '<p class="empty-state">No recipes found matching query.</p>';
     return;
   }
 
-  for (const r of filtered) {
-    let isLearned = false;
-    let isLearning = false;
-    
-    if (state.isGuest) {
-      const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
-      const status = guestChecklist[r.id];
-      isLearned = status === 'learned';
-      isLearning = status === 'learning';
+  if (state.catalogLayout === 'table') {
+    let tableHtml = `
+      <div class="table-container glass-panel" style="width: 100%;">
+        <table class="matrix-table" style="width: 100%;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 12px 16px;">Item Name</th>
+              <th style="text-align: left; padding: 12px 16px;">Formula / Ingredients</th>
+              <th style="text-align: left; padding: 12px 16px; width: 120px;">Category</th>
+              <th style="text-align: left; padding: 12px 16px;">Source</th>
+              <th style="text-align: center; padding: 12px 16px; width: 220px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    for (const r of filtered) {
+      let isLearned = false;
+      let isLearning = false;
+      
+      if (state.isGuest) {
+        const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+        const status = guestChecklist[r.id];
+        isLearned = status === 'learned';
+        isLearning = status === 'learning';
+      }
+
+      const rowClass = isLearned ? 'learned-row' : (isLearning ? 'learning-row' : '');
+
+      tableHtml += `
+        <tr class="matrix-row ${rowClass}">
+          <td style="padding: 12px 16px; font-weight: 600; vertical-align: middle;">${r.item_name}</td>
+          <td style="padding: 12px 16px; color: var(--text-muted); font-size: 0.85rem; vertical-align: middle;">${r.formula || '<span style="font-style: italic; opacity: 0.5;">No recipe ingredients recorded</span>'}</td>
+          <td style="padding: 12px 16px; vertical-align: middle;"><span class="badge primary">${r.category}</span></td>
+          <td style="padding: 12px 16px; vertical-align: middle; font-size: 0.8rem;">
+            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+          </td>
+          <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
+            <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+              ${r.formula ? `
+                <button class="btn btn-sm secondary-btn" style="padding: 4px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap;" onclick="addRecipeToCalculator(${r.id})">
+                  <i data-lucide="calculator" style="width: 12px; height: 12px;"></i> + Calc
+                </button>
+              ` : ''}
+              ${state.isGuest ? `
+                <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
+                  onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                  <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
+                </button>
+                <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
+                  onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                  <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `;
     }
 
-    html += `
-      <div class="catalog-item glass-panel ${isLearned ? 'learned-card' : ''} ${isLearning ? 'learning-card' : ''}">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-          <h4 style="margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${r.item_name}</h4>
-          <div style="display: flex; gap: 4px;">
-            ${r.formula ? `
-              <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
-                <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
-              </button>
+    tableHtml += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    DOM.globalCatalogList.innerHTML = html + tableHtml;
+  } else {
+    for (const r of filtered) {
+      let isLearned = false;
+      let isLearning = false;
+      
+      if (state.isGuest) {
+        const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+        const status = guestChecklist[r.id];
+        isLearned = status === 'learned';
+        isLearning = status === 'learning';
+      }
+
+      html += `
+        <div class="catalog-item glass-panel ${isLearned ? 'learned-card' : ''} ${isLearning ? 'learning-card' : ''}">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+            <h4 style="margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${r.item_name}</h4>
+            <div style="display: flex; gap: 4px;">
+              ${r.formula ? `
+                <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
+                  <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
+                </button>
+              ` : ''}
+            </div>
+          </div>
+          <p class="formula" style="margin-top: 8px;"><strong>Formula:</strong> ${r.formula || 'No recipe ingredients recorded'}</p>
+          <div class="meta-row" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 4px;">
+              <span class="badge primary">${r.category}</span>
+              ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+            </div>
+            
+            ${state.isGuest ? `
+              <div class="checklist-actions" style="margin-top: 0; padding: 0; display: flex; gap: 4px;">
+                <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
+                  onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
+                  <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
+                </button>
+                <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
+                  onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
+                  <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
+                </button>
+              </div>
             ` : ''}
           </div>
         </div>
-        <p class="formula" style="margin-top: 8px;"><strong>Formula:</strong> ${r.formula || 'No recipe ingredients recorded'}</p>
-        <div class="meta-row" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <div style="display: flex; gap: 4px;">
-            <span class="badge primary">${r.category}</span>
-            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
-          </div>
-          
-          ${state.isGuest ? `
-            <div class="checklist-actions" style="margin-top: 0; padding: 0; display: flex; gap: 4px;">
-              <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
-                onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
-                <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
-              </button>
-              <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
-                onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 2px 6px; font-size: 0.72rem; border-radius: 4px;">
-                <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
-              </button>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
+      `;
+    }
+    DOM.globalCatalogList.innerHTML = html;
   }
-  DOM.globalCatalogList.innerHTML = html;
   lucide.createIcons();
 }
 
@@ -1994,6 +2083,20 @@ function initEventListeners() {
   DOM.catalogCategorySelect.addEventListener('change', () => filterCatalogUI());
   DOM.catalogSourceSelect.addEventListener('change', () => filterCatalogUI());
   DOM.catalogSortSelect.addEventListener('change', () => filterCatalogUI());
+
+  DOM.layoutGridBtn.addEventListener('click', () => {
+    state.catalogLayout = 'grid';
+    localStorage.setItem('catalog_layout', 'grid');
+    updateLayoutButtons();
+    filterCatalogUI();
+  });
+
+  DOM.layoutTableBtn.addEventListener('click', () => {
+    state.catalogLayout = 'table';
+    localStorage.setItem('catalog_layout', 'table');
+    updateLayoutButtons();
+    filterCatalogUI();
+  });
 
   // Submit Recipe Form
   DOM.submitRecipeForm.addEventListener('submit', async (e) => {
