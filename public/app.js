@@ -1531,8 +1531,17 @@ function filterCatalogUI() {
   
   if (state.isGuest) {
     const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
-    const learnedCount = Object.values(guestChecklist).filter(v => v === 'learned').length;
-    const learningCount = Object.values(guestChecklist).filter(v => v === 'learning').length;
+    let learnedCount = 0;
+    let learningCount = 0;
+    
+    state.recipes.forEach(r => {
+      const status = guestChecklist[r.id];
+      if (status === 'learned' || r.formula === 'Unlocked by default') {
+        learnedCount++;
+      } else if (status === 'learning') {
+        learningCount++;
+      }
+    });
     
     html += `
       <div class="glass-panel pane-section" style="grid-column: 1 / -1; margin-bottom: 20px; padding: 15px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
