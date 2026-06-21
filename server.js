@@ -15,6 +15,31 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Initialize database schema
 initSchema();
 
+// Ensure Admin user exists with correct role and password hash on startup
+function ensureAdminUser() {
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const passwordHash = crypto.createHash('sha256').update(adminPassword).digest('hex');
+
+  try {
+    const existingAdmin = db.prepare(`SELECT id, role FROM users WHERE username = ?`).get(adminUsername);
+    if (!existingAdmin) {
+      db.prepare(`
+        INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')
+      `).run(adminUsername, passwordHash);
+      console.log(`Default admin user ensured: '${adminUsername}'`);
+    } else {
+      db.prepare(`
+        UPDATE users SET role = 'admin', password_hash = ? WHERE id = ?
+      `).run(passwordHash, existingAdmin.id);
+      console.log(`Admin user verified and updated on startup: '${adminUsername}'`);
+    }
+  } catch (err) {
+    console.error("Failed to ensure admin user on startup:", err);
+  }
+}
+ensureAdminUser();
+
 // Password hashing helper
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');

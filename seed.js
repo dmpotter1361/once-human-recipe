@@ -46,8 +46,8 @@ function seed() {
   }
 
   const crypto = require('crypto');
-  const adminUsername = 'admin';
-  const adminPassword = 'admin123';
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
   const passwordHash = crypto.createHash('sha256').update(adminPassword).digest('hex');
 
   const existingAdmin = db.prepare(`SELECT id, role FROM users WHERE username = ?`).get(adminUsername);
