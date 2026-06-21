@@ -43,7 +43,15 @@ const state = {
   matrixState: {},
   activeCoordinatorView: 'recipe', // 'recipe' or 'spec'
   calcQueue: [], // [{ recipeId, qty }]
-  catalogLayout: localStorage.getItem('catalog_layout') || 'grid'
+  catalogLayout: localStorage.getItem('catalog_layout') || 'grid',
+  catalogSortColumn: 'item_name',
+  catalogSortOrder: 'asc',
+  catalogSubsearches: {
+    item_name: '',
+    formula: '',
+    category: '',
+    acquired_by: ''
+  }
 };
 
 // ================= INITIALIZATION ================= //
@@ -1555,63 +1563,126 @@ function filterCatalogUI() {
   }
 
   if (state.catalogLayout === 'table') {
+    // Apply subsearches column-by-column
+    const tableFiltered = filtered.filter(r => {
+      const matchName = !state.catalogSubsearches.item_name || r.item_name.toLowerCase().includes(state.catalogSubsearches.item_name.toLowerCase());
+      const matchFormula = !state.catalogSubsearches.formula || (r.formula && r.formula.toLowerCase().includes(state.catalogSubsearches.formula.toLowerCase()));
+      const matchCategory = !state.catalogSubsearches.category || r.category.toLowerCase().includes(state.catalogSubsearches.category.toLowerCase());
+      const matchSource = !state.catalogSubsearches.acquired_by || (r.acquired_by && r.acquired_by.toLowerCase().includes(state.catalogSubsearches.acquired_by.toLowerCase()));
+      return matchName && matchFormula && matchCategory && matchSource;
+    });
+
+    // Apply sorting
+    tableFiltered.sort((a, b) => {
+      let valA = a[state.catalogSortColumn] || '';
+      let valB = b[state.catalogSortColumn] || '';
+      
+      valA = valA.toString().toLowerCase();
+      valB = valB.toString().toLowerCase();
+      
+      if (valA < valB) return state.catalogSortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return state.catalogSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     let tableHtml = `
       <div class="table-container glass-panel" style="width: 100%;">
         <table class="matrix-table" style="width: 100%;">
           <thead>
             <tr>
-              <th style="text-align: left; padding: 12px 16px;">Item Name</th>
-              <th style="text-align: left; padding: 12px 16px;">Formula / Ingredients</th>
-              <th style="text-align: left; padding: 12px 16px; width: 120px;">Category</th>
-              <th style="text-align: left; padding: 12px 16px;">Source</th>
-              <th style="text-align: center; padding: 12px 16px; width: 220px;">Actions</th>
+              <th style="padding: 12px 16px; width: 25%;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span class="sortable-header" onclick="toggleCatalogTableSort('item_name')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--text-main); font-weight: 700; user-select: none;">
+                    Item Name ${state.catalogSortColumn === 'item_name' ? (state.catalogSortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </span>
+                  <input type="text" placeholder="Filter..." class="subsearch-input glass-input" data-column="item_name" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-main); width: 100%;" value="${state.catalogSubsearches.item_name}" oninput="updateCatalogSubsearch(event, 'item_name')" onclick="event.stopPropagation()">
+                </div>
+              </th>
+              <th style="padding: 12px 16px; width: 35%;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span class="sortable-header" onclick="toggleCatalogTableSort('formula')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--text-main); font-weight: 700; user-select: none;">
+                    Formula / Ingredients ${state.catalogSortColumn === 'formula' ? (state.catalogSortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </span>
+                  <input type="text" placeholder="Filter..." class="subsearch-input glass-input" data-column="formula" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-main); width: 100%;" value="${state.catalogSubsearches.formula}" oninput="updateCatalogSubsearch(event, 'formula')" onclick="event.stopPropagation()">
+                </div>
+              </th>
+              <th style="padding: 12px 16px; width: 15%;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span class="sortable-header" onclick="toggleCatalogTableSort('category')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--text-main); font-weight: 700; user-select: none;">
+                    Category ${state.catalogSortColumn === 'category' ? (state.catalogSortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </span>
+                  <input type="text" placeholder="Filter..." class="subsearch-input glass-input" data-column="category" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-main); width: 100%;" value="${state.catalogSubsearches.category}" oninput="updateCatalogSubsearch(event, 'category')" onclick="event.stopPropagation()">
+                </div>
+              </th>
+              <th style="padding: 12px 16px; width: 15%;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span class="sortable-header" onclick="toggleCatalogTableSort('acquired_by')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--text-main); font-weight: 700; user-select: none;">
+                    Source ${state.catalogSortColumn === 'acquired_by' ? (state.catalogSortOrder === 'asc' ? '▲' : '▼') : ''}
+                  </span>
+                  <input type="text" placeholder="Filter..." class="subsearch-input glass-input" data-column="acquired_by" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-main); width: 100%;" value="${state.catalogSubsearches.acquired_by}" oninput="updateCatalogSubsearch(event, 'acquired_by')" onclick="event.stopPropagation()">
+                </div>
+              </th>
+              <th style="text-align: center; padding: 12px 16px; width: 10%; vertical-align: top;">
+                <span style="display: block; margin-bottom: 6px; color: var(--text-muted); font-weight: 700;">Actions</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.4; display: block; font-weight: normal; margin-top: 6px;">-</span>
+              </th>
             </tr>
           </thead>
           <tbody>
     `;
 
-    for (const r of filtered) {
-      let isLearned = false;
-      let isLearning = false;
-      
-      if (state.isGuest) {
-        const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
-        const status = guestChecklist[r.id];
-        isLearned = status === 'learned';
-        isLearning = status === 'learning';
-      }
-
-      const rowClass = isLearned ? 'learned-row' : (isLearning ? 'learning-row' : '');
-
+    if (tableFiltered.length === 0) {
       tableHtml += `
-        <tr class="matrix-row ${rowClass}">
-          <td style="padding: 12px 16px; font-weight: 600; vertical-align: middle;">${r.item_name}</td>
-          <td style="padding: 12px 16px; color: var(--text-muted); font-size: 0.85rem; vertical-align: middle;">${r.formula || '<span style="font-style: italic; opacity: 0.5;">No recipe ingredients recorded</span>'}</td>
-          <td style="padding: 12px 16px; vertical-align: middle;"><span class="badge primary">${r.category}</span></td>
-          <td style="padding: 12px 16px; vertical-align: middle; font-size: 0.8rem;">
-            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
-          </td>
-          <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
-            <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
-              ${r.formula && !state.isGuest ? `
-                <button class="btn btn-sm secondary-btn" style="padding: 4px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap;" onclick="addRecipeToCalculator(${r.id})">
-                  <i data-lucide="calculator" style="width: 12px; height: 12px;"></i> + Calc
-                </button>
-              ` : ''}
-              ${state.isGuest ? `
-                <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
-                  onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                  <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
-                </button>
-                <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
-                  onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                  <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
-                </button>
-              ` : ''}
-            </div>
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted); font-style: italic;">
+            No recipes matched the column filters.
           </td>
         </tr>
       `;
+    } else {
+      for (const r of tableFiltered) {
+        let isLearned = false;
+        let isLearning = false;
+        
+        if (state.isGuest) {
+          const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+          const status = guestChecklist[r.id];
+          isLearned = status === 'learned';
+          isLearning = status === 'learning';
+        }
+
+        const rowClass = isLearned ? 'learned-row' : (isLearning ? 'learning-row' : '');
+
+        tableHtml += `
+          <tr class="matrix-row ${rowClass}">
+            <td style="padding: 12px 16px; font-weight: 600; vertical-align: middle;">${r.item_name}</td>
+            <td style="padding: 12px 16px; color: var(--text-muted); font-size: 0.85rem; vertical-align: middle;">${r.formula || '<span style="font-style: italic; opacity: 0.5;">No recipe ingredients recorded</span>'}</td>
+            <td style="padding: 12px 16px; vertical-align: middle;"><span class="badge primary">${r.category}</span></td>
+            <td style="padding: 12px 16px; vertical-align: middle; font-size: 0.8rem;">
+              ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+            </td>
+            <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
+              <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                ${r.formula && !state.isGuest ? `
+                  <button class="btn btn-sm secondary-btn" style="padding: 4px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap;" onclick="addRecipeToCalculator(${r.id})">
+                    <i data-lucide="calculator" style="width: 12px; height: 12px;"></i> + Calc
+                  </button>
+                ` : ''}
+                ${state.isGuest ? `
+                  <button class="checklist-btn learning ${isLearning ? 'active' : ''}" 
+                    onclick="updateGuestRecipeStatus(${r.id}, 'learning')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="target" style="width: 12px; height: 12px;"></i> Learning
+                  </button>
+                  <button class="checklist-btn learned ${isLearned ? 'active' : ''}" 
+                    onclick="updateGuestRecipeStatus(${r.id}, 'learned')" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="check" style="width: 12px; height: 12px;"></i> Learned
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }
     }
 
     tableHtml += `
@@ -1671,6 +1742,17 @@ function filterCatalogUI() {
     DOM.globalCatalogList.innerHTML = html;
   }
   lucide.createIcons();
+
+  if (state.catalogLayout === 'table' && activeSubsearchKey) {
+    const inputs = DOM.globalCatalogList.querySelectorAll('.subsearch-input');
+    for (const input of inputs) {
+      if (input.getAttribute('data-column') === activeSubsearchKey) {
+        input.focus();
+        input.setSelectionRange(activeSelectionStart, activeSelectionEnd);
+        break;
+      }
+    }
+  }
 }
 
 
@@ -2440,3 +2522,31 @@ function resetGuestLedger() {
   }
 }
 window.resetGuestLedger = resetGuestLedger;
+
+// ================= COLUMN SORT & SUBSEARCH HELPERS ================= //
+let activeSubsearchKey = null;
+let activeSelectionStart = 0;
+let activeSelectionEnd = 0;
+
+function toggleCatalogTableSort(columnKey) {
+  if (state.catalogSortColumn === columnKey) {
+    state.catalogSortOrder = state.catalogSortOrder === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.catalogSortColumn = columnKey;
+    state.catalogSortOrder = 'asc';
+  }
+  filterCatalogUI();
+}
+
+function updateCatalogSubsearch(e, columnKey) {
+  activeSubsearchKey = columnKey;
+  activeSelectionStart = e.target.selectionStart;
+  activeSelectionEnd = e.target.selectionEnd;
+  
+  state.catalogSubsearches[columnKey] = e.target.value;
+  filterCatalogUI();
+}
+
+window.toggleCatalogTableSort = toggleCatalogTableSort;
+window.updateCatalogSubsearch = updateCatalogSubsearch;
+
