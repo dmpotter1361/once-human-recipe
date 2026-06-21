@@ -189,6 +189,7 @@ function initDOM() {
     harvesterScenarioSelect: document.getElementById('harvester-scenario-select'),
     harvesterText: document.getElementById('harvester-text'),
     runHarvesterBtn: document.getElementById('run-harvester-btn'),
+    runSteamHarvesterBtn: document.getElementById('run-steam-harvester-btn'),
     adminResetServer: document.getElementById('admin-reset-server'),
     resetScenarioBtn: document.getElementById('reset-scenario-btn'),
     adminTabBtn: document.getElementById('admin-tab-btn'),
@@ -1700,6 +1701,23 @@ function initEventListeners() {
     } finally {
       DOM.runHarvesterBtn.disabled = false;
       DOM.runHarvesterBtn.querySelector('span').textContent = 'Extract & Register Servers';
+    }
+  });
+
+  // Execute Steam News Auto-Harvester
+  DOM.runSteamHarvesterBtn.addEventListener('click', async () => {
+    DOM.runSteamHarvesterBtn.disabled = true;
+    DOM.runSteamHarvesterBtn.querySelector('span').textContent = 'Harvesting Steam feed...';
+    try {
+      const res = await apiCall('/admin/harvest-steam-news', 'POST');
+      showToast(res.message, false);
+      await loadMetadata();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      DOM.runSteamHarvesterBtn.disabled = false;
+      DOM.runSteamHarvesterBtn.querySelector('span').textContent = 'Auto-Harvest from Steam Feed';
+      lucide.createIcons();
     }
   });
 

@@ -780,7 +780,7 @@ function inferScenario(serverName, fallbackScenario) {
   if (upper.includes('WINTER') || upper.includes('WAY_OF_WINTER')) {
     return 'The Way of Winter';
   }
-  if (upper.includes('PRISM') || upper.includes('PRISMVERSE')) {
+  if (upper.includes('PRISM') || upper.includes('PRISMVERSE') || upper.includes('P_CLASH')) {
     return "Prismverse's Clash";
   }
   if (upper.includes('EVOLUTION') || upper.includes('EVOLUTIONS_CALL') || upper.includes('EVOLUTION_CALL')) {
@@ -807,6 +807,42 @@ function inferScenario(serverName, fallbackScenario) {
   return fallbackScenario || 'Standard';
 }
 
+// Helper to clean formatting artifacts/run-together characters from parsed server codes
+function cleanServerName(serverName) {
+  const upper = serverName.toUpperCase();
+  
+  const knownKeywords = [
+    'WAY_OF_WINTER',
+    'WINTER',
+    'MANIBUS',
+    'E_DREAM',
+    'EDREAM',
+    'ENDLESS_DREAM',
+    'PRISMVERSE',
+    'PRISM',
+    'P_CLASH',
+    'EVOLUTION',
+    'NOVICE_S',
+    'NOVICE',
+    'PVE',
+    'PVP'
+  ];
+  
+  for (const kw of knownKeywords) {
+    const idx = upper.indexOf(kw);
+    if (idx !== -1) {
+      return serverName.substring(idx).toUpperCase();
+    }
+  }
+  
+  const shorthandMatch = serverName.match(/X\d{4}/i) || serverName.match(/S-\d{5}/i);
+  if (shorthandMatch) {
+    return shorthandMatch[0].toUpperCase();
+  }
+  
+  return serverName.toUpperCase();
+}
+
 // Harvest Server Codes from Raw text (Admin only)
 app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) => {
   const { scenario_name, text } = req.body;
@@ -819,9 +855,9 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
   try {
     // Regexes to extract standard Once Human server strings
     const patterns = [
-      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,5}/gi,
-      /(?:[A-Z0-9_]+-)?X\d{4,5}/gi,
-      /(?:[A-Z0-9_]+_)?S-\d{4,5}/gi
+      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,4}/gi,
+      /(?:[A-Z0-9_]+-)?X\d{4}/gi, // X scenario codes are exactly 4 digits
+      /(?:[A-Z0-9_]+_)?S-\d{5}/gi // S difficulty codes are exactly 5 digits
     ];
 
     const foundServers = new Set();
@@ -829,7 +865,10 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
       let match;
       pattern.lastIndex = 0; // Reset regex state
       while ((match = pattern.exec(text)) !== null) {
-        foundServers.add(match[0].toUpperCase());
+        const cleaned = cleanServerName(match[0]);
+        if (cleaned) {
+          foundServers.add(cleaned);
+        }
       }
     }
 
@@ -907,6 +946,113 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
     res.json({
       message: `Scanned text. Found ${foundServers.size} raw codes. Registered/updated ${newServers.length} servers.`,
       newServers
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auto-Harvest Server Codes from Steam Announcements (Admin only)
+app.post('/api/admin/harvest-steam-news', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const appId = '2139460';
+    const url = `http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=${appId}&count=20&maxlength=100000&format=json`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Steam API returned status: ${response.status}`);
+    }
+    const data = await response.json();
+    const newsItems = data.appnews.newsitems || [];
+    
+    const patterns = [
+      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,4}/gi,
+      /(?:[A-Z0-9_]+-)?X\d{4}/gi,
+      /(?:[A-Z0-9_]+_)?S-\d{5}/gi
+    ];
+    
+    const harvested = [];
+    const existingServers = db.prepare(`SELECT id, name, scenario_name FROM servers`).all();
+    const insertServer = db.prepare(`INSERT INTO servers (name, scenario_name) VALUES (?, ?)`);
+    const updateServerName = db.prepare(`UPDATE servers SET name = ?, scenario_name = ? WHERE id = ?`);
+    
+    let totalScanned = 0;
+    
+    for (const item of newsItems) {
+      const content = item.contents || '';
+      const foundInArticle = new Set();
+      
+      for (const pattern of patterns) {
+        let match;
+        pattern.lastIndex = 0;
+        while ((match = pattern.exec(content)) !== null) {
+          const cleaned = cleanServerName(match[0]);
+          if (cleaned) {
+            foundInArticle.add(cleaned);
+          }
+        }
+      }
+      
+      if (foundInArticle.size === 0) continue;
+      
+      totalScanned++;
+      
+      const dedupedArticleCodes = [];
+      const sortedCodes = Array.from(foundInArticle).sort((a, b) => b.length - a.length);
+      for (const name of sortedCodes) {
+        const isSuffix = dedupedArticleCodes.some(longerName => 
+          longerName.endsWith('-' + name) || longerName.endsWith('_' + name)
+        );
+        if (!isSuffix) {
+          dedupedArticleCodes.push(name);
+        }
+      }
+      
+      for (const serverName of dedupedArticleCodes) {
+        const scenario = inferScenario(serverName, 'Standard');
+        let isDuplicate = false;
+        let matchedServerId = null;
+        let shouldUpdateName = false;
+        
+        for (const existing of existingServers) {
+          if (existing.scenario_name === scenario) {
+            if (existing.name === serverName) {
+              isDuplicate = true;
+              break;
+            }
+            
+            if (serverName.endsWith('-' + existing.name) || serverName.endsWith('_' + existing.name)) {
+              matchedServerId = existing.id;
+              shouldUpdateName = true;
+              break;
+            }
+            
+            if (existing.name.endsWith('-' + serverName) || existing.name.endsWith('_' + serverName)) {
+              isDuplicate = true;
+              break;
+            }
+          }
+        }
+        
+        if (shouldUpdateName && matchedServerId !== null) {
+          updateServerName.run(serverName, scenario, matchedServerId);
+          harvested.push(`${serverName} (Updated shorthand in '${scenario}')`);
+          const ext = existingServers.find(e => e.id === matchedServerId);
+          if (ext) {
+            ext.name = serverName;
+            ext.scenario_name = scenario;
+          }
+        } else if (!isDuplicate) {
+          insertServer.run(serverName, scenario);
+          harvested.push(`${serverName} ('${scenario}')`);
+          existingServers.push({ name: serverName, scenario_name: scenario });
+        }
+      }
+    }
+    
+    res.json({
+      message: `Scanned the last 20 Steam announcements. Found ${totalScanned} articles containing server codes. Registered/updated ${harvested.length} servers.`,
+      newServers: harvested
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
