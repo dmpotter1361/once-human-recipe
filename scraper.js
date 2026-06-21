@@ -1,6 +1,15 @@
 const cheerio = require('cheerio');
 const { db } = require('./db');
 
+function normalizeFormula(text) {
+  if (!text) return '';
+  let clean = text.replace(/\+/g, ',');
+  return clean.split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 async function scrapeWikiForRecipes(useMock = false) {
   const newRecipesFound = [];
   
@@ -33,7 +42,7 @@ async function scrapeWikiForRecipes(useMock = false) {
         db.prepare(`
           INSERT INTO recipes (item_name, formula, category, acquired_by, is_approved)
           VALUES (?, ?, ?, ?, 0)
-        `).run(r.item_name, r.formula, r.category, r.acquired_by);
+        `).run(r.item_name, normalizeFormula(r.formula), r.category, r.acquired_by);
         newRecipesFound.push(r);
       }
     }
@@ -76,14 +85,15 @@ async function scrapeWikiForRecipes(useMock = false) {
           const exists = db.prepare(`SELECT 1 FROM recipes WHERE item_name = ?`).get(item_name);
           if (!exists) {
             // Insert as pending review (is_approved = 0)
+            const cleanFormula = normalizeFormula(formula);
             db.prepare(`
               INSERT INTO recipes (item_name, formula, category, acquired_by, is_approved)
               VALUES (?, ?, 'Survival', ?, 0)
-            `).run(item_name, formula, `Acquired from: ${acquired_by} | Effects: ${effects}`);
+            `).run(item_name, cleanFormula, `Acquired from: ${acquired_by} | Effects: ${effects}`);
             
             newRecipesFound.push({
               item_name,
-              formula,
+              formula: cleanFormula,
               category: 'Survival',
               acquired_by: `Scraped: ${acquired_by}`
             });

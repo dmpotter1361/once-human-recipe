@@ -12,6 +12,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+function normalizeFormula(text) {
+  if (!text) return '';
+  let clean = text.replace(/\+/g, ',');
+  return clean.split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 // Initialize database schema
 initSchema();
 
@@ -681,10 +690,12 @@ app.post('/api/recipes', authenticate, (req, res) => {
   try {
     const isApproved = submit_to_global ? 0 : 1; // 0 goes to admin queue, 1 is local immediately available
 
+    const cleanFormula = normalizeFormula(formula || '');
+
     const result = db.prepare(`
       INSERT INTO recipes (item_name, formula, category, acquired_by, is_approved, submitted_by)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(item_name, formula || '', category, acquired_by || '', isApproved, req.user.id);
+    `).run(item_name, cleanFormula, category, acquired_by || '', isApproved, req.user.id);
 
     res.status(201).json({
       recipeId: result.lastInsertRowid,

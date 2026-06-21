@@ -23,6 +23,15 @@ function parseCSVLine(line) {
   return result;
 }
 
+function normalizeFormula(text) {
+  if (!text) return '';
+  let clean = text.replace(/\+/g, ',');
+  return clean.split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 function seed() {
   console.log("Initializing database schema...");
   initSchema();
@@ -111,7 +120,7 @@ function seed() {
     if (columns.length < 3) continue; // Must have at least item, formula, category
 
     const item_name = columns[0];
-    const formula = columns[1] || '';
+    const formula = normalizeFormula(columns[1] || '');
     const category = columns[2] || '';
     const repPoints = columns[3] ? parseInt(columns[3], 10) : null;
     const reverse_engineering_points = isNaN(repPoints) ? null : repPoints;
@@ -124,6 +133,20 @@ function seed() {
       console.error(`Failed to insert recipe: ${item_name}`, err);
     }
   }
+
+  // 4. Normalize all existing formulas in the database (ensures existing DB updates without wipe)
+  console.log("Normalizing all recipe formulas in the database...");
+  const recipes = db.prepare(`SELECT id, formula FROM recipes`).all();
+  const updateRecipeFormula = db.prepare(`UPDATE recipes SET formula = ? WHERE id = ?`);
+  let normalizedCount = 0;
+  for (const r of recipes) {
+    const clean = normalizeFormula(r.formula);
+    if (clean !== r.formula) {
+      updateRecipeFormula.run(clean, r.id);
+      normalizedCount++;
+    }
+  }
+  console.log(`Normalized ${normalizedCount} existing recipe formulas.`);
 
   console.log(`Database seeding completed! Seeded ${count} recipes.`);
 }
