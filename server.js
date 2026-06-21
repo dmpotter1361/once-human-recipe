@@ -960,7 +960,7 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
 app.post('/api/admin/harvest-steam-news', authenticate, requireAdmin, async (req, res) => {
   try {
     const appId = '2139460';
-    const url = `http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=${appId}&count=20&maxlength=100000&format=json`;
+    const url = `http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=${appId}&count=100&maxlength=100000&format=json`;
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -1054,7 +1054,7 @@ app.post('/api/admin/harvest-steam-news', authenticate, requireAdmin, async (req
     }
     
     res.json({
-      message: `Scanned the last 20 Steam announcements. Found ${totalScanned} articles containing server codes. Registered/updated ${harvested.length} servers.`,
+      message: `Scanned the last 100 Steam announcements. Found ${totalScanned} articles containing server codes. Registered/updated ${harvested.length} servers.`,
       newServers: harvested
     });
   } catch (err) {
