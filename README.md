@@ -1,6 +1,6 @@
 # Once Human Crafting Tracker
 
-[![Latest release](https://img.shields.io/github/v/release/dmpotter1361/once-human-recipe?label=download&sort=semver)](https://github.com/dmpotter1361/once-human-recipe/releases/latest)
+[![Package version](https://img.shields.io/github/package-json/v/dmpotter1361/once-human-recipe?color=blue&label=version)](https://github.com/dmpotter1361/once-human-recipe/blob/main/package.json)
 
 A premium, self-hosted companion web application for *Once Human* players and guilds. It tracks recipe formulas, coordinates memetic specializations, calculates recursive crafting breakdowns, and displays a side-by-side guild matrix.
 
