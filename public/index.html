@@ -683,6 +683,32 @@
                 </div>
               </div>
             </div>
+
+            <!-- Server Database list -->
+            <div class="glass-panel pane-section" style="grid-column: 1 / -1; margin-top: 20px;">
+              <h3>Registered Server Directory</h3>
+              <p class="section-desc">List of all Once Human servers registered in the database, grouped by scenario.</p>
+              
+              <div class="search-box" style="margin-bottom: 15px; max-width: 300px; margin-top: 15px;">
+                <i data-lucide="search"></i>
+                <input type="text" id="admin-server-search" placeholder="Search servers...">
+              </div>
+              
+              <div class="server-directory-container" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                <table class="matrix-table" style="width: 100%;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; padding: 12px 16px;">Server Code / Name</th>
+                      <th style="text-align: left; padding: 12px 16px;">Scenario Group</th>
+                      <th style="text-align: center; padding: 12px 16px; width: 120px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-server-list-body">
+                    <!-- Injected by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 

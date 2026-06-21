@@ -767,6 +767,20 @@ app.post('/api/admin/reset-scenario', authenticate, requireAdmin, (req, res) => 
   }
 });
 
+// Delete Server (Admin only)
+app.delete('/api/admin/servers/:id', authenticate, requireAdmin, (req, res) => {
+  const serverId = req.params.id;
+  try {
+    const result = db.prepare('DELETE FROM servers WHERE id = ?').run(serverId);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+    res.json({ message: 'Server deleted successfully from database' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Helper to infer Once Human scenario from server name prefix
 function inferScenario(serverName, fallbackScenario) {
   const upper = serverName.toUpperCase();

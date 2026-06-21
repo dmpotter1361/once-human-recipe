@@ -202,6 +202,8 @@ function initDOM() {
     runSteamHarvesterBtn: document.getElementById('run-steam-harvester-btn'),
     adminResetServer: document.getElementById('admin-reset-server'),
     resetScenarioBtn: document.getElementById('reset-scenario-btn'),
+    adminServerSearch: document.getElementById('admin-server-search'),
+    adminServerListBody: document.getElementById('admin-server-list-body'),
     adminTabBtn: document.getElementById('admin-tab-btn'),
     
     // Notifications
@@ -551,6 +553,7 @@ function switchTab(tabId) {
     loadCatalog();
   } else if (tabId === 'admin-tab') {
     loadAdminQueue();
+    loadAdminServers();
   }
 }
 
@@ -1555,6 +1558,71 @@ async function rejectRecipe(id) {
 }
 window.rejectRecipe = rejectRecipe;
 
+async function loadAdminServers() {
+  if (!state.user || state.user.role !== 'admin') return;
+
+  try {
+    const servers = await apiCall('/servers');
+    state.servers = servers;
+    populateServerDropdowns();
+    renderAdminServers(servers);
+  } catch (err) {
+    console.error("Failed to load admin servers", err);
+  }
+}
+
+function renderAdminServers(servers) {
+  if (servers.length === 0) {
+    DOM.adminServerListBody.innerHTML = '<tr><td colspan="3" style="color: var(--text-muted); text-align: center; padding: 20px;">No registered servers found.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (const s of servers) {
+    html += `
+      <tr class="server-row" data-name="${s.name.toLowerCase()}" data-scenario="${s.scenario_name.toLowerCase()}">
+        <td style="padding: 12px 16px; text-align: left; font-weight: 500; color: var(--text-light);">${s.name}</td>
+        <td style="padding: 12px 16px; text-align: left; color: var(--text-muted);">${s.scenario_name}</td>
+        <td style="padding: 12px 16px; text-align: center;">
+          <button class="btn btn-sm danger-btn" onclick="deleteServer(${s.id}, '${s.name.replace(/'/g, "\\'")}')" style="padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  }
+  DOM.adminServerListBody.innerHTML = html;
+  lucide.createIcons();
+}
+
+function filterAdminServersUI() {
+  const query = DOM.adminServerSearch.value.toLowerCase();
+  const rows = DOM.adminServerListBody.querySelectorAll('.server-row');
+  rows.forEach(row => {
+    const name = row.getAttribute('data-name');
+    const scenario = row.getAttribute('data-scenario');
+    if (name.includes(query) || scenario.includes(query)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+async function deleteServer(id, name) {
+  if (confirm(`WARNING: Deleting server "${name}" will automatically delete ALL characters registered on this server!\n\nAre you sure you want to permanently delete this server and its characters?`)) {
+    try {
+      await apiCall(`/admin/servers/${id}`, 'DELETE');
+      showToast(`Server "${name}" and all associated data deleted.`, false);
+      await loadMetadata();
+      await loadAdminServers();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+window.deleteServer = deleteServer;
+
 // ================= EVENT LISTENERS INITIALIZATION ================= //
 function initEventListeners() {
   // Matrix Tab
@@ -1955,6 +2023,11 @@ function initEventListeners() {
   DOM.openCalculatorBtn.addEventListener('click', () => {
     DOM.calculatorModal.classList.remove('hidden');
     renderCalculatorUI();
+  });
+
+  // Admin Server Directory search
+  DOM.adminServerSearch.addEventListener('input', () => {
+    filterAdminServersUI();
   });
 }
 
