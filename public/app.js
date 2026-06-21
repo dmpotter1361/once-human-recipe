@@ -1559,7 +1559,7 @@ function filterCatalogUI() {
         <div class="meta-row" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
           <div style="display: flex; gap: 4px;">
             <span class="badge primary">${r.category}</span>
-            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
+            ${r.acquired_by ? `<span class="badge" style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">Source: ${formatCoords(r.acquired_by)}</span>` : ''}
           </div>
           
           ${state.isGuest ? `
