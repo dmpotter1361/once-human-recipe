@@ -1647,7 +1647,7 @@ function filterCatalogUI() {
         if (state.isGuest) {
           const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
           const status = guestChecklist[r.id];
-          isLearned = status === 'learned';
+          isLearned = status === 'learned' || r.formula === 'Unlocked by default';
           isLearning = status === 'learning';
         }
 
@@ -1700,7 +1700,7 @@ function filterCatalogUI() {
       if (state.isGuest) {
         const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
         const status = guestChecklist[r.id];
-        isLearned = status === 'learned';
+        isLearned = status === 'learned' || r.formula === 'Unlocked by default';
         isLearning = status === 'learning';
       }
 
@@ -2426,7 +2426,7 @@ function calculateShoppingList() {
         if (state.isGuest) {
           const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
           const status = guestChecklist[recipe.id];
-          if (status === 'learned') {
+          if (status === 'learned' || recipe.formula === 'Unlocked by default') {
             crafterHelp = `<span style="font-size: 0.7rem; color: var(--status-learned-glow); display: block;">Known by: You</span>`;
           } else {
             crafterHelp = `<span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Not learned yet</span>`;

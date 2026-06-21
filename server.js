@@ -393,6 +393,15 @@ app.get('/api/guilds/:id/matrix', authenticate, (req, res) => {
 
     // Format states as map: character_id -> recipe_id -> status
     const stateMap = {};
+    for (const char of characters) {
+      stateMap[char.id] = {};
+      for (const rec of recipes) {
+        if (rec.formula === 'Unlocked by default') {
+          stateMap[char.id][rec.id] = 'learned';
+        }
+      }
+    }
+
     for (const row of recipeStates) {
       if (!stateMap[row.character_id]) {
         stateMap[row.character_id] = {};
@@ -630,7 +639,12 @@ app.get('/api/recipes', (req, res) => {
     if (characterId) {
       // Return recipes with a status column for the character
       recipes = db.prepare(`
-        SELECT r.*, cr.status
+        SELECT r.*, 
+               CASE 
+                 WHEN cr.status IS NOT NULL THEN cr.status
+                 WHEN r.formula = 'Unlocked by default' THEN 'learned'
+                 ELSE NULL
+               END AS status
         FROM recipes r
         LEFT JOIN character_recipes cr ON r.id = cr.recipe_id AND cr.character_id = ?
         WHERE r.is_approved = 1
