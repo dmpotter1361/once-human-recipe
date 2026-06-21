@@ -379,11 +379,13 @@ async function showDashboard() {
       </div>
     `;
     DOM.adminTabBtn.classList.add('hidden');
+    DOM.openCalculatorBtn.classList.add('hidden');
     document.querySelector('[data-tab="matrix-tab"]').classList.add('hidden');
     document.querySelector('[data-tab="wishlist-tab"]').classList.add('hidden');
     document.querySelector('[data-tab="characters-tab"]').classList.add('hidden');
     state.activeTab = 'recipes-tab';
   } else {
+    DOM.openCalculatorBtn.classList.remove('hidden');
     DOM.authHeaderActions.innerHTML = `
       <div class="user-profile-badge">
         <span class="username-tag"><i data-lucide="user"></i> ${state.user.username}</span>
@@ -1591,7 +1593,7 @@ function filterCatalogUI() {
           </td>
           <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
             <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
-              ${r.formula ? `
+              ${r.formula && !state.isGuest ? `
                 <button class="btn btn-sm secondary-btn" style="padding: 4px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap;" onclick="addRecipeToCalculator(${r.id})">
                   <i data-lucide="calculator" style="width: 12px; height: 12px;"></i> + Calc
                 </button>
@@ -1636,7 +1638,7 @@ function filterCatalogUI() {
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
             <h4 style="margin: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 170px;">${r.item_name}</h4>
             <div style="display: flex; gap: 4px;">
-              ${r.formula ? `
+              ${r.formula && !state.isGuest ? `
                 <button class="btn btn-sm secondary-btn" style="padding: 2px 8px; font-size: 0.72rem; border-color: rgba(255,255,255,0.05); white-space: nowrap; flex-shrink: 0;" onclick="addRecipeToCalculator(${r.id})">
                   <i data-lucide="calculator" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> + Calc
                 </button>
