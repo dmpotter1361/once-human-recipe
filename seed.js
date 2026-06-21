@@ -27,22 +27,35 @@ function seed() {
   console.log("Initializing database schema...");
   initSchema();
 
-  // 1. Seed Scenarios
-  console.log("Seeding default scenarios...");
-  const defaultScenarios = [
-    { name: 'X0001', scenario: 'The Way of Winter' },
-    { name: 'PVE-01-0001', scenario: 'Manibus' },
-    { name: 'PVP-01-0001', scenario: 'Prismverse\'s Clash' },
-    { name: 'PVE-01-0002', scenario: 'Evolution\'s Call' },
-    { name: 'Solo Tracking', scenario: 'Solo' }
+  // 1. Seed Scenarios & Servers
+  console.log("Seeding scenarios and servers...");
+  const seedJsonPath = path.join(__dirname, 'servers_seed.json');
+  let serversToSeed = [
+    { name: 'X0001', scenario_name: 'The Way of Winter' },
+    { name: 'PVE-01-0001', scenario_name: 'Manibus' },
+    { name: 'PVP-01-0001', scenario_name: "Prismverse's Clash" },
+    { name: 'PVE-01-0002', scenario_name: "Evolution's Call" },
+    { name: 'Solo Tracking', scenario_name: 'Solo' }
   ];
+
+  if (fs.existsSync(seedJsonPath)) {
+    try {
+      const fileData = fs.readFileSync(seedJsonPath, 'utf8');
+      serversToSeed = JSON.parse(fileData);
+      console.log(`Loaded ${serversToSeed.length} servers from servers_seed.json`);
+    } catch (err) {
+      console.error("Failed to parse servers_seed.json, falling back to default list", err);
+    }
+  } else {
+    console.log("servers_seed.json not found, seeding default list");
+  }
 
   const insertServer = db.prepare(`
     INSERT OR IGNORE INTO servers (name, scenario_name) VALUES (?, ?)
   `);
 
-  for (const s of defaultScenarios) {
-    insertServer.run(s.name, s.scenario);
+  for (const s of serversToSeed) {
+    insertServer.run(s.name, s.scenario_name);
   }
 
   const crypto = require('crypto');
