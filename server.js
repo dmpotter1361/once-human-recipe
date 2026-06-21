@@ -792,9 +792,9 @@ function inferScenario(serverName, fallbackScenario) {
 
   // Attempt to parse general prefix before the suffix
   // e.g. "SCENARIO-X0001", "SCENARIO_S-00001", "SCENARIO-PVE-01-0001"
-  const prefixMatch = serverName.match(/^([A-Z0-9_]+?)(?:-|_)X\d+/i) || 
-                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)S-\d+/i) ||
-                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)(?:PVE|PVP)-\d+/i);
+  const prefixMatch = serverName.match(/^([A-Z0-9_]+?)(?:-|_)[XYAS]\d+/i) || 
+                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)[XYAS][-_]\d+/i) ||
+                      serverName.match(/^([A-Z0-9_]+?)(?:-|_)(?:PVE|PVP)(?:-|_)(?:[A-Z0-9]{2,5}(?:-|_))?\d+/i);
                       
   if (prefixMatch && prefixMatch[1]) {
     const rawPrefix = prefixMatch[1].toUpperCase();
@@ -824,6 +824,11 @@ function cleanServerName(serverName) {
     'EVOLUTION',
     'NOVICE_S',
     'NOVICE',
+    'HARDCORE',
+    'SOFTCORE',
+    'VANILLA',
+    'NORMAL',
+    'HARD',
     'PVE',
     'PVP'
   ];
@@ -835,7 +840,7 @@ function cleanServerName(serverName) {
     }
   }
   
-  const shorthandMatch = serverName.match(/X\d{4}/i) || serverName.match(/S-\d{5}/i);
+  const shorthandMatch = serverName.match(/[XYAS][-_]?\d{4,6}/i);
   if (shorthandMatch) {
     return shorthandMatch[0].toUpperCase();
   }
@@ -855,9 +860,8 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
   try {
     // Regexes to extract standard Once Human server strings
     const patterns = [
-      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,4}/gi,
-      /(?:[A-Z0-9_]+-)?X\d{4}/gi, // X scenario codes are exactly 4 digits
-      /(?:[A-Z0-9_]+_)?S-\d{5}/gi // S difficulty codes are exactly 5 digits
+      /\b(?:PVE|PVP)[-_](?:[A-Z0-9]{2,5}[-_])?\d{1,2}[-_]\d{4,6}\b/gi,
+      /\b(?:[A-Z0-9_]+[-_])?[XYAS][-_]?\d{4,6}\b/gi
     ];
 
     const foundServers = new Set();
@@ -966,9 +970,8 @@ app.post('/api/admin/harvest-steam-news', authenticate, requireAdmin, async (req
     const newsItems = data.appnews.newsitems || [];
     
     const patterns = [
-      /(?:PVE|PVP)-(?:[A-Z0-9_]+-)?\d{2}-\d{3,4}/gi,
-      /(?:[A-Z0-9_]+-)?X\d{4}/gi,
-      /(?:[A-Z0-9_]+_)?S-\d{5}/gi
+      /\b(?:PVE|PVP)[-_](?:[A-Z0-9]{2,5}[-_])?\d{1,2}[-_]\d{4,6}\b/gi,
+      /\b(?:[A-Z0-9_]+[-_])?[XYAS][-_]?\d{4,6}\b/gi
     ];
     
     const harvested = [];
