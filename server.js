@@ -794,8 +794,11 @@ function inferScenario(serverName, fallbackScenario) {
   if (upper.includes('WINTER') || upper.includes('WAY_OF_WINTER')) {
     return 'The Way of Winter';
   }
-  if (upper.includes('PRISM') || upper.includes('PRISMVERSE') || upper.includes('P_CLASH')) {
+  if (upper.includes('PRISM') || upper.includes('PRISMVERSE')) {
     return "Prismverse's Clash";
+  }
+  if (upper.includes('P_CLASH') || upper.includes('P-CLASH') || upper.includes('PCLASH')) {
+    return "Prism Clash";
   }
   if (upper.includes('EVOLUTION') || upper.includes('EVOLUTIONS_CALL') || upper.includes('EVOLUTION_CALL')) {
     return "Evolution's Call";
@@ -924,7 +927,7 @@ app.post('/api/admin/harvest-servers', authenticate, requireAdmin, (req, res) =>
 
       for (const existing of existingServers) {
         // Match within same scenario or check for shorthand conversion
-        if (existing.scenario_name === scenario) {
+        if (existing.scenario_name === scenario || existing.scenario_name === 'Standard') {
           if (existing.name === serverName) {
             isDuplicate = true;
             break;
@@ -1032,7 +1035,7 @@ app.post('/api/admin/harvest-steam-news', authenticate, requireAdmin, async (req
         let shouldUpdateName = false;
         
         for (const existing of existingServers) {
-          if (existing.scenario_name === scenario) {
+          if (existing.scenario_name === scenario || existing.scenario_name === 'Standard') {
             if (existing.name === serverName) {
               isDuplicate = true;
               break;
