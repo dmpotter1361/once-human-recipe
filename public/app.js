@@ -62,6 +62,26 @@ document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   updateLayoutButtons();
   
+  // URL parameter parsing for shared guest checklist
+  const urlParams = new URLSearchParams(window.location.search);
+  const guestShare = urlParams.get('guest_share');
+  if (guestShare) {
+    state.isGuest = true;
+    state.isSharePreview = true;
+    state.sharePreviewData = {};
+    
+    guestShare.split(',').forEach(part => {
+      if (!part) return;
+      const [idStr, statusChar] = part.split(':');
+      const recipeId = parseInt(idStr, 10);
+      if (!isNaN(recipeId)) {
+        state.sharePreviewData[recipeId] = statusChar === 'L' ? 'learned' : 'learning';
+      }
+    });
+    
+    state.user = { username: 'Guest (Shared Preview)', role: 'guest' };
+  }
+  
   if (state.token || state.isGuest) {
     showDashboard();
   } else {
@@ -230,6 +250,15 @@ function initDOM() {
     adminServerListBody: document.getElementById('admin-server-list-body'),
     adminTabBtn: document.getElementById('admin-tab-btn'),
     
+    // Migrate Guest Modal & Import File input
+    migrateGuestModal: document.getElementById('migrate-guest-modal'),
+    migrateGuestSummaryText: document.getElementById('migrate-guest-summary-text'),
+    btnConfirmMigrateGuest: document.getElementById('btn-confirm-migrate-guest'),
+    btnSkipMigrateGuest: document.getElementById('btn-skip-migrate-guest'),
+    btnDiscardMigrateGuest: document.getElementById('btn-discard-migrate-guest'),
+    closeMigrateGuestBtn: document.getElementById('close-migrate-guest-btn'),
+    importGuestFile: document.getElementById('import-guest-file'),
+    
     // Notifications
     notificationToast: document.getElementById('notification-toast')
   };
@@ -349,6 +378,13 @@ function initLogout() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      state.isSharePreview = false;
+      state.sharePreviewData = null;
+      // Programmatically strip query parameters from URL
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
       if (state.isGuest) {
         state.isGuest = false;
         state.user = null;
@@ -1138,8 +1174,54 @@ async function loadCharacters() {
   try {
     state.myCharacters = await apiCall('/characters');
     renderMyCharactersList();
+    checkGuestMigrationOnboarding();
   } catch (err) {
     console.error(err);
+  }
+}
+
+function checkGuestMigrationOnboarding() {
+  if (state.isGuest || state.guestMigrationDeferred) return;
+  
+  const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+  const guestKeys = Object.keys(guestChecklist);
+  if (guestKeys.length === 0) return;
+  
+  if (state.myCharacters && state.myCharacters.length > 0) {
+    const activeChar = state.myCharacters.find(c => c.id === state.activeCharacterId) || state.myCharacters[0];
+    if (!activeChar) return;
+    
+    DOM.migrateGuestSummaryText.textContent = `Found ${guestKeys.length} checked recipes in local ledger. These will be synchronized to your character "${activeChar.name}" (${activeChar.server_name}).`;
+    DOM.migrateGuestModal.classList.remove('hidden');
+    lucide.createIcons();
+    
+    DOM.btnConfirmMigrateGuest.onclick = async () => {
+      DOM.btnConfirmMigrateGuest.disabled = true;
+      DOM.btnConfirmMigrateGuest.textContent = "Syncing...";
+      try {
+        for (const recipeId of guestKeys) {
+          const status = guestChecklist[recipeId];
+          await apiCall(`/recipes/${recipeId}/status`, 'POST', {
+            character_id: activeChar.id,
+            status: status
+          });
+        }
+        localStorage.removeItem('once_human_guest_checklist');
+        DOM.migrateGuestModal.classList.add('hidden');
+        showToast(`Successfully synced local progress to "${activeChar.name}"!`, false);
+        if (state.activeCharacterId === activeChar.id) {
+          await loadRecipeChecklist(activeChar.id);
+        } else {
+          await selectCharacter(activeChar.id);
+        }
+      } catch (err) {
+        console.error("Migration sync failed:", err);
+        showToast("Failed to sync some recipes. Check connection.", true);
+      } finally {
+        DOM.btnConfirmMigrateGuest.disabled = false;
+        DOM.btnConfirmMigrateGuest.textContent = "Sync to Character";
+      }
+    };
   }
 }
 
@@ -1530,7 +1612,9 @@ function filterCatalogUI() {
   let html = '';
   
   if (state.isGuest) {
-    const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+    const guestChecklist = state.isSharePreview 
+      ? state.sharePreviewData 
+      : (JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {});
     let learnedCount = 0;
     let learningCount = 0;
     
@@ -1543,18 +1627,43 @@ function filterCatalogUI() {
       }
     });
     
+    const bannerTitle = state.isSharePreview
+      ? `<h3><i data-lucide="eye" class="logo-glow" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Shared Guest Checklist (Read-Only)</h3>`
+      : `<h3><i data-lucide="book-open" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Guest Recipe Ledger</h3>`;
+      
+    const bannerDesc = state.isSharePreview
+      ? `<p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--status-learning-glow);">Viewing a shared checklist preview. Save a copy to edit locally.</p>`
+      : `<p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--text-muted);">Tracking locally in browser. No account required.</p>`;
+
+    let actionsHtml = '';
+    if (state.isSharePreview) {
+      actionsHtml = `
+        <button class="btn btn-sm primary-btn btn-glow" onclick="saveSharedCopy()"><i data-lucide="copy"></i> Save a Copy</button>
+        <a class="btn btn-sm secondary-btn" href="${window.location.pathname}"><i data-lucide="x-circle"></i> Close Preview</a>
+      `;
+    } else {
+      actionsHtml = `
+        <button class="btn btn-sm secondary-btn" onclick="exportGuestLedger()"><i data-lucide="download"></i> Export</button>
+        <button class="btn btn-sm secondary-btn" onclick="triggerImportGuestLedger()"><i data-lucide="upload"></i> Import</button>
+        <button class="btn btn-sm secondary-btn" onclick="shareGuestLedger()"><i data-lucide="share-2"></i> Share</button>
+        <button class="btn btn-sm danger-btn" onclick="resetGuestLedger()"><i data-lucide="rotate-ccw"></i> Reset</button>
+      `;
+    }
+    
     html += `
       <div class="glass-panel pane-section" style="grid-column: 1 / -1; margin-bottom: 20px; padding: 15px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
         <div>
-          <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-light);"><i data-lucide="book-open" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Guest Recipe Ledger</h3>
-          <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--text-muted);">Tracking locally in browser. No account required.</p>
+          ${bannerTitle}
+          ${bannerDesc}
         </div>
         <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
           <div style="font-size: 0.88rem; color: var(--text-light);">
             <span style="margin-right: 15px;">Learned: <strong style="color: var(--status-learned-glow);">${learnedCount}</strong></span>
             <span>Learning: <strong style="color: var(--status-learning-glow);">${learningCount}</strong></span>
           </div>
-          <button class="btn btn-sm danger-btn" onclick="resetGuestLedger()"><i data-lucide="rotate-ccw"></i> Reset Ledger</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${actionsHtml}
+          </div>
         </div>
       </div>
     `;
@@ -2314,6 +2423,63 @@ function initEventListeners() {
   DOM.adminServerSearch.addEventListener('input', () => {
     filterAdminServersUI();
   });
+
+  // Migrate Guest Modal event listeners
+  if (DOM.closeMigrateGuestBtn) {
+    DOM.closeMigrateGuestBtn.addEventListener('click', () => {
+      DOM.migrateGuestModal.classList.add('hidden');
+    });
+  }
+  
+  if (DOM.btnSkipMigrateGuest) {
+    DOM.btnSkipMigrateGuest.addEventListener('click', () => {
+      state.guestMigrationDeferred = true;
+      DOM.migrateGuestModal.classList.add('hidden');
+      showToast("Migration skipped.", false);
+    });
+  }
+  
+  if (DOM.btnDiscardMigrateGuest) {
+    DOM.btnDiscardMigrateGuest.addEventListener('click', () => {
+      if (confirm("Are you sure you want to discard your local guest checklist? This action is irreversible!")) {
+        localStorage.removeItem('once_human_guest_checklist');
+        DOM.migrateGuestModal.classList.add('hidden');
+        showToast("Local guest data discarded.", false);
+        filterCatalogUI();
+      }
+    });
+  }
+
+  // Restore Guest Ledger from JSON file upload
+  if (DOM.importGuestFile) {
+    DOM.importGuestFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (parsed && typeof parsed === 'object') {
+            const isValid = Object.values(parsed).every(v => v === 'learned' || v === 'learning');
+            if (isValid) {
+              localStorage.setItem('once_human_guest_checklist', JSON.stringify(parsed));
+              showToast("Ledger successfully imported and restored!", false);
+              filterCatalogUI();
+            } else {
+              showToast("Invalid ledger format. Keys must map to 'learned' or 'learning'.", true);
+            }
+          } else {
+            showToast("Failed to parse JSON ledger.", true);
+          }
+        } catch (err) {
+          showToast("Error reading file as JSON.", true);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  }
 }
 
 // Expose calculator functions to global scope for templates
@@ -2558,4 +2724,68 @@ function updateCatalogSubsearch(e, columnKey) {
 
 window.toggleCatalogTableSort = toggleCatalogTableSort;
 window.updateCatalogSubsearch = updateCatalogSubsearch;
+
+// Backup (Export) Guest Ledger
+function exportGuestLedger() {
+  const dataStr = localStorage.getItem('once_human_guest_checklist') || '{}';
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const downloadUrl = URL.createObjectURL(dataBlob);
+  const downloadLink = document.createElement('a');
+  downloadLink.href = downloadUrl;
+  downloadLink.download = 'once_human_guest_recipes.json';
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+  URL.revokeObjectURL(downloadUrl);
+  showToast("Ledger exported successfully!", false);
+}
+window.exportGuestLedger = exportGuestLedger;
+
+// Trigger hidden file input click
+function triggerImportGuestLedger() {
+  if (DOM.importGuestFile) {
+    DOM.importGuestFile.click();
+  }
+}
+window.triggerImportGuestLedger = triggerImportGuestLedger;
+
+// Generate and copy share link
+function shareGuestLedger() {
+  const guestChecklist = JSON.parse(localStorage.getItem('once_human_guest_checklist')) || {};
+  const parts = [];
+  Object.keys(guestChecklist).forEach(recipeId => {
+    const status = guestChecklist[recipeId];
+    if (status) {
+      const statusChar = status === 'learned' ? 'L' : 'T';
+      parts.push(`${recipeId}:${statusChar}`);
+    }
+  });
+  
+  if (parts.length === 0) {
+    showToast("Ledger is empty! Mark some recipes first.", true);
+    return;
+  }
+  
+  const shareQuery = parts.join(',');
+  const shareUrl = `${window.location.origin}${window.location.pathname}?guest_share=${shareQuery}`;
+  
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    showToast("Shareable link copied to clipboard!", false);
+  }).catch(err => {
+    console.error("Clipboard copy failed", err);
+    alert(`Here is your shareable link:\n${shareUrl}`);
+  });
+}
+window.shareGuestLedger = shareGuestLedger;
+
+// Clone shared preview checklist to local storage
+function saveSharedCopy() {
+  if (confirm("This will overwrite your current local guest checklist with this shared copy. Are you sure you want to proceed?")) {
+    localStorage.setItem('once_human_guest_checklist', JSON.stringify(state.sharePreviewData));
+    showToast("Shared checklist copied locally!", false);
+    window.location.href = window.location.pathname;
+  }
+}
+window.saveSharedCopy = saveSharedCopy;
+
 

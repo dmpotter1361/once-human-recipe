@@ -395,6 +395,26 @@
                 </div>
                 <button type="submit" class="btn primary-btn danger-btn">Reset & Migrate Character</button>
               </form>
+          </div>
+          
+          <!-- Migrate Guest Progress Modal -->
+          <div class="modal hidden" id="migrate-guest-modal">
+            <div class="modal-content glass-panel">
+              <div class="modal-header">
+                <h3><i data-lucide="merge" class="logo-glow"></i> Sync Local Progress</h3>
+                <button class="close-modal-btn" id="close-migrate-guest-btn"><i data-lucide="x"></i></button>
+              </div>
+              <p class="modal-desc"><i data-lucide="info" style="display: inline-block; vertical-align: middle; margin-right: 4px;"></i> We detected guest recipe tracking progress stored in this browser. Would you like to import it to your character?</p>
+              
+              <div style="font-size: 0.88rem; color: var(--text-light); margin-bottom: 20px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                <span id="migrate-guest-summary-text">Detecting items...</span>
+              </div>
+              
+              <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                <button class="btn secondary-btn" id="btn-discard-migrate-guest" style="border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171;">Discard Local Data</button>
+                <button class="btn secondary-btn" id="btn-skip-migrate-guest">Not Now</button>
+                <button class="btn primary-btn btn-glow" id="btn-confirm-migrate-guest">Sync to Character</button>
+              </div>
             </div>
           </div>
 
@@ -732,7 +752,7 @@
 
     <!-- Subtle Footer with Versioning -->
     <footer class="app-footer">
-      <span>Stardust Tracker v1.1.4</span>
+      <span>Stardust Tracker v1.1.5</span>
       <span class="footer-divider">|</span>
       <a href="https://github.com/dmpotter1361/once-human-recipe" target="_blank" rel="noopener noreferrer">
         <i data-lucide="github"></i> GitHub Project
@@ -740,7 +760,10 @@
     </footer>
 
   </div>
-
+  
+  <!-- Hidden file input for guest ledger import -->
+  <input type="file" id="import-guest-file" accept=".json" style="display: none;">
+  
   <!-- Client-side Logic Script -->
   <script src="app.js"></script>
 </body>
